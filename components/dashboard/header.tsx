@@ -12,7 +12,7 @@ interface HeaderProps {
 
 export function Header({ title, description, actions }: HeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-border">
+    <div className="hidden lg:flex flex-row items-center justify-between gap-4 pb-5 border-b border-border">
       <div>
         <h1 className="font-extrabold italic tracking-wide uppercase text-2xl text-foreground">{title}</h1>
         {description && <p className="font-serif italic text-sm text-primary mt-0.5">{description}</p>}
