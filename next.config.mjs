@@ -18,6 +18,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Turbopack vacío para que no choque con el webpack de next-pwa
+  turbopack: {},
 }
 
 export default pwaConfig(nextConfig)
