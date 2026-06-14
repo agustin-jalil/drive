@@ -1,5 +1,5 @@
 "use client"
-import { ClipboardList, MapPin, BookOpen, Settings, LogOut, Coffee } from "lucide-react"
+import { ClipboardList, MapPin, BookOpen, LogOut, Coffee, History } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import Link from "next/link"
@@ -7,9 +7,10 @@ import { usePathname } from "next/navigation"
 import { useAuth } from "@/context/auth-store"
 
 const menuItems = [
-  { icon: ClipboardList, label: "Pedidos",  href: "/" },
-  { icon: MapPin,        label: "Mesas",    href: "/mesas" },
-  { icon: BookOpen,      label: "Catálogo", href: "/catalogo" },
+  { icon: ClipboardList, label: "Pedidos",   href: "/" },
+  { icon: MapPin,        label: "Mesas",     href: "/mesas" },
+  { icon: BookOpen,      label: "Catálogo",  href: "/catalogo" },
+  { icon: History,       label: "Historial", href: "/historial" },
 ]
 
 export function Sidebar() {
@@ -86,13 +87,13 @@ export function BottomNav() {
   const pathname = usePathname()
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar border-t border-sidebar-border">
-      <div className="flex items-center justify-around h-16 px-2">
+      <div className="flex items-center justify-around h-16 px-1">
         {menuItems.map(item => {
           const active = pathname === item.href
           return (
             <Link key={item.href} href={item.href}
               className={cn(
-                "flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl transition-all duration-200 min-w-0 flex-1",
+                "flex flex-col items-center gap-0.5 px-2 py-2 rounded-xl transition-all duration-200 min-w-0 flex-1",
                 active ? "text-primary" : "text-muted-foreground"
               )}>
               <div className={cn(
@@ -102,7 +103,7 @@ export function BottomNav() {
                 <item.icon className={cn("w-5 h-5", active && "text-primary")} />
               </div>
               <span className={cn(
-                "text-[10px] font-semibold leading-none",
+                "text-[9px] font-semibold leading-none",
                 active ? "text-primary" : "text-muted-foreground"
               )}>
                 {item.label}

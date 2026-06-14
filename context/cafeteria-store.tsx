@@ -119,7 +119,7 @@ export function CafeteriaStore({ children }: { children: React.ReactNode }) {
       if (!initializedPedidos.current) return
       await fetchPedidosSilent()
       await fetchMesasSilent()
-    }, 30_000)
+    }, 15_000)
     return () => clearInterval(interval)
   }, [fetchPedidosSilent, fetchMesasSilent])
 

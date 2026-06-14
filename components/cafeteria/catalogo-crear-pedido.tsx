@@ -2,240 +2,324 @@
 import { useState, useMemo } from "react"
 import { useStore } from "@/context/cafeteria-store"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ShoppingCart, Plus, Minus, Trash2, SendHorizonal, ChevronDown, Loader2 } from "lucide-react"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  Plus, Minus, ShoppingCart, Loader2, CheckCircle2, X, ChevronRight,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { ItemCatalogo, Mesa } from "@/lib/api"
+import { useRouter } from "next/navigation"
 
-type CarritoItem = { item: ItemCatalogo; cantidad: number }
+const fmtPrecio = (n: number) =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n)
+
+type Carrito = Record<string, number>
 
 export function CatalogoCrearPedido() {
-  const { catalogo, categorias, mesas, loadingCatalogo, crearPedido } = useStore()
-  const [catActiva, setCatActiva] = useState<string | null>(null)
-  const [carrito,   setCarrito]   = useState<CarritoItem[]>([])
-  const [mesaId,    setMesaId]    = useState<string>("")
-  const [sending,   setSending]   = useState(false)
-  const [exito,     setExito]     = useState(false)
+  const { catalogo, categorias, mesas, loadingCatalogo, loadingMesas, crearPedido } = useStore()
+  const router = useRouter()
+
+  const [carrito, setCarrito]           = useState<Carrito>({})
+  const [categoriaFiltro, setCategoriaFiltro] = useState<string>("todas")
+  const [mesaId, setMesaId]             = useState<string>("")
+  const [submitting, setSubmitting]     = useState(false)
+  const [success, setSuccess]           = useState(false)
+  const [carritoOpen, setCarritoOpen]   = useState(false)
 
   const itemsFiltrados = useMemo(() =>
-    catActiva ? catalogo.filter(i => i.categoriaId === catActiva) : catalogo,
-  [catalogo, catActiva])
+    categoriaFiltro === "todas"
+      ? catalogo
+      : catalogo.filter(i => i.categoriaId === categoriaFiltro),
+    [catalogo, categoriaFiltro]
+  )
 
-  const mesasActivas = mesas.filter(m => m.activo)
+  const totalItems = Object.values(carrito).reduce((a, b) => a + b, 0)
+  const totalPrecio = Object.entries(carrito).reduce((acc, [id, qty]) => {
+    const item = catalogo.find(i => i.id === id)
+    return acc + (item?.precio ?? 0) * qty
+  }, 0)
 
-  const totalCarrito = carrito.reduce((a, c) => a + c.item.precio * c.cantidad, 0)
-  const cantTotal    = carrito.reduce((a, c) => a + c.cantidad, 0)
+  const add  = (id: string) => setCarrito(c => ({ ...c, [id]: (c[id] ?? 0) + 1 }))
+  const sub  = (id: string) => setCarrito(c => {
+    const n = (c[id] ?? 0) - 1
+    if (n <= 0) { const { [id]: _, ...rest } = c; return rest }
+    return { ...c, [id]: n }
+  })
+  const clear = () => setCarrito({})
 
-  const agregarItem = (item: ItemCatalogo) => {
-    setCarrito(prev => {
-      const ex = prev.find(c => c.item.id === item.id)
-      if (ex) return prev.map(c => c.item.id === item.id ? { ...c, cantidad: c.cantidad + 1 } : c)
-      return [...prev, { item, cantidad: 1 }]
-    })
-  }
-
-  const cambiarCantidad = (itemId: string, delta: number) => {
-    setCarrito(prev =>
-      prev
-        .map(c => c.item.id === itemId ? { ...c, cantidad: c.cantidad + delta } : c)
-        .filter(c => c.cantidad > 0)
-    )
-  }
-
-  const enviarPedido = async () => {
-    if (!mesaId || carrito.length === 0) return
-    setSending(true)
+  const handleSubmit = async () => {
+    if (!mesaId || totalItems === 0) return
+    setSubmitting(true)
     try {
-      await crearPedido(mesaId, carrito.map(c => ({ itemId: c.item.id, cantidad: c.cantidad })))
-      setCarrito([])
+      const items = Object.entries(carrito).map(([itemId, cantidad]) => ({ itemId, cantidad }))
+      await crearPedido(mesaId, items)
+      setSuccess(true)
+      clear()
       setMesaId("")
-      setExito(true)
-      setTimeout(() => setExito(false), 3000)
+      setCarritoOpen(false)
+      setTimeout(() => { setSuccess(false); router.push("/") }, 1800)
     } catch (e) {
       console.error(e)
     } finally {
-      setSending(false)
+      setSubmitting(false)
     }
   }
 
   if (loadingCatalogo) return <CatalogoSkeleton />
 
   return (
-    <div className="flex flex-col xl:flex-row gap-4 xl:gap-6">
-      {/* Columna catálogo */}
-      <div className="flex-1 min-w-0 space-y-4">
-        {/* Filtro categorías */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+    <div className="animate-fade-in pb-24 lg:pb-6">
+
+      {success && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card rounded-2xl p-8 flex flex-col items-center gap-3 shadow-2xl animate-fade-in">
+            <CheckCircle2 className="w-16 h-16 text-green-500" />
+            <p className="font-bold text-foreground text-lg">¡Pedido creado!</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Filtro categorías ── */}
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4">
+        <button
+          onClick={() => setCategoriaFiltro("todas")}
+          className={cn(
+            "flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all border",
+            categoriaFiltro === "todas"
+              ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+              : "bg-secondary text-muted-foreground border-border/50 hover:border-primary/40 hover:text-foreground"
+          )}
+        >
+          Todo
+        </button>
+        {categorias.map(cat => (
           <button
-            onClick={() => setCatActiva(null)}
+            key={cat.id}
+            onClick={() => setCategoriaFiltro(cat.id)}
             className={cn(
-              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border",
-              !catActiva
+              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all border",
+              categoriaFiltro === cat.id
                 ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
-                : "bg-card border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                : "bg-secondary text-muted-foreground border-border/50 hover:border-primary/40 hover:text-foreground"
             )}
           >
-            Todos
+            {cat.emoji && <span>{cat.emoji}</span>}
+            {cat.nombre}
           </button>
-          {categorias.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setCatActiva(cat.id === catActiva ? null : cat.id)}
+        ))}
+      </div>
+
+      {/* ── Grid catálogo ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {itemsFiltrados.map(item => {
+          const qty = carrito[item.id] ?? 0
+          return (
+            <Card
+              key={item.id}
               className={cn(
-                "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border",
-                catActiva === cat.id
-                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
-                  : "bg-card border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                "p-3 flex flex-col gap-2 transition-all duration-200 cursor-default border",
+                qty > 0
+                  ? "border-primary/60 bg-primary/5 shadow-md shadow-primary/10"
+                  : "border-border/50 hover:border-primary/30"
               )}
             >
-              {cat.emoji && <span>{cat.emoji}</span>}
-              {cat.nombre}
-            </button>
-          ))}
-        </div>
-
-        {/* Grid items */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
-          {itemsFiltrados.map(item => {
-            const enCarrito = carrito.find(c => c.item.id === item.id)
-            return (
-              <button
-                key={item.id}
-                onClick={() => agregarItem(item)}
-                className={cn(
-                  "relative rounded-xl border p-3 text-left transition-all duration-200 active:scale-95",
-                  enCarrito
-                    ? "border-primary/60 bg-primary/8 shadow-md shadow-primary/15"
-                    : "border-border/50 bg-card hover:border-primary/40 hover:bg-secondary/50"
+              {/* Emoji + nombre */}
+              <div className="flex-1">
+                {item.emoji && (
+                  <span className="text-2xl block mb-1">{item.emoji}</span>
                 )}
-              >
-                {enCarrito && (
-                  <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                    {enCarrito.cantidad}
-                  </span>
-                )}
-                <div className="text-2xl mb-2">{item.emoji ?? "🍽️"}</div>
-                <p className="text-xs font-semibold text-foreground leading-tight line-clamp-2 mb-1.5">
+                <p className="font-semibold text-foreground text-sm leading-tight line-clamp-2">
                   {item.nombre}
                 </p>
-                <p className="text-xs font-bold text-primary">
-                  ${item.precio.toLocaleString("es-AR")}
-                </p>
-              </button>
-            )
-          })}
-        </div>
+                {item.descripcion && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2 leading-tight">
+                    {item.descripcion}
+                  </p>
+                )}
+              </div>
+
+              {/* Precio */}
+              <p className="font-extrabold text-primary text-sm">{fmtPrecio(item.precio)}</p>
+
+              {/* Controles cantidad */}
+              <div className="flex items-center justify-between gap-2">
+                {qty === 0 ? (
+                  <Button
+                    size="sm"
+                    onClick={() => add(item.id)}
+                    className="w-full h-8 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2 w-full justify-between">
+                    <button
+                      onClick={() => sub(item.id)}
+                      className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="font-extrabold text-primary text-base min-w-[1.5rem] text-center">{qty}</span>
+                    <button
+                      onClick={() => add(item.id)}
+                      className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center hover:bg-primary/80 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-primary-foreground" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )
+        })}
       </div>
 
-      {/* Panel carrito */}
-      <div className="xl:w-80 xl:flex-shrink-0">
-        <Card className="border-border/50 overflow-hidden sticky top-[4.5rem]">
-          <div className="p-4 border-b border-border/50 bg-secondary/30">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4 text-primary" />
-                <span className="font-semibold text-sm text-foreground">Pedido</span>
-              </div>
-              {cantTotal > 0 && (
-                <Badge className="bg-primary/15 text-primary border-primary/30 text-xs border rounded-full px-2">
-                  {cantTotal} ítem{cantTotal !== 1 ? "s" : ""}
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          <div className="p-4 space-y-4">
-            {/* Selector mesa */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mesa / Barra</label>
-              <div className="relative">
-                <select
-                  value={mesaId}
-                  onChange={e => setMesaId(e.target.value)}
-                  className="w-full h-10 rounded-lg bg-secondary border border-border text-sm text-foreground px-3 pr-8 appearance-none focus:outline-none focus:border-primary transition-colors"
-                >
-                  <option value="">Seleccioná una mesa...</option>
-                  <optgroup label="Mesas">
-                    {mesasActivas.filter(m => m.tipo === "MESA").map(m => (
-                      <option key={m.id} value={m.id}>{m.label}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Barra">
-                    {mesasActivas.filter(m => m.tipo === "BARRA").map(m => (
-                      <option key={m.id} value={m.id}>{m.label}</option>
-                    ))}
-                  </optgroup>
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Items carrito */}
-            {carrito.length === 0 ? (
-              <div className="py-8 text-center">
-                <ShoppingCart className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground">Tocá un ítem del catálogo para agregarlo</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {carrito.map(({ item, cantidad }) => (
-                  <div key={item.id} className="flex items-center gap-2 rounded-lg bg-secondary/50 p-2">
-                    <span className="text-lg flex-shrink-0">{item.emoji ?? "🍽️"}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground truncate">{item.nombre}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        ${(item.precio * cantidad).toLocaleString("es-AR")}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => cambiarCantidad(item.id, -1)}
-                        className="w-6 h-6 rounded-md bg-secondary border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/40 transition-colors"
-                      >
-                        {cantidad === 1 ? <Trash2 className="w-3 h-3 text-destructive" /> : <Minus className="w-3 h-3" />}
-                      </button>
-                      <span className="text-xs font-bold text-foreground w-4 text-center">{cantidad}</span>
-                      <button
-                        onClick={() => cambiarCantidad(item.id, 1)}
-                        className="w-6 h-6 rounded-md bg-secondary border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/40 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Total + enviar */}
-            {carrito.length > 0 && (
-              <>
-                <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                  <span className="text-sm font-semibold text-muted-foreground">Total</span>
-                  <span className="text-lg font-bold text-foreground">
-                    ${totalCarrito.toLocaleString("es-AR")}
+      {/* ── DESKTOP: panel lateral / formulario ── */}
+      {totalItems > 0 && (
+        <Card className="hidden lg:block mt-6 p-5 border-primary/40 bg-primary/5">
+          <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+            <ShoppingCart className="w-4 h-4 text-primary" />
+            Resumen del pedido
+          </h3>
+          <div className="space-y-1.5 mb-4 max-h-48 overflow-y-auto">
+            {Object.entries(carrito).map(([id, qty]) => {
+              const item = catalogo.find(i => i.id === id)
+              if (!item) return null
+              return (
+                <div key={id} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground truncate flex items-center gap-1.5">
+                    {item.emoji} {item.nombre} ×{qty}
+                  </span>
+                  <span className="font-bold text-primary flex-shrink-0 ml-2">
+                    {fmtPrecio(item.precio * qty)}
                   </span>
                 </div>
-                <Button
-                  onClick={enviarPedido}
-                  disabled={!mesaId || sending}
-                  className="w-full bg-primary hover:bg-primary/90 font-semibold gap-2 shadow-lg shadow-primary/25"
-                >
-                  {sending ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
-                  ) : exito ? (
-                    "✅ ¡Pedido enviado!"
-                  ) : (
-                    <><SendHorizonal className="w-4 h-4" /> Enviar pedido</>
-                  )}
-                </Button>
-              </>
-            )}
+              )
+            })}
+          </div>
+
+          <div className="flex items-center justify-between mb-4 pt-3 border-t border-border/50">
+            <span className="font-semibold text-foreground">Total</span>
+            <span className="font-extrabold text-primary text-lg">{fmtPrecio(totalPrecio)}</span>
+          </div>
+
+          <div className="flex gap-3">
+            <Select value={mesaId} onValueChange={setMesaId}>
+              <SelectTrigger className="flex-1 h-10">
+                <SelectValue placeholder={loadingMesas ? "Cargando mesas..." : "Seleccionar mesa"} />
+              </SelectTrigger>
+              <SelectContent>
+                {mesas.map(m => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.label} {m.pedidos.length > 0 ? `(${m.pedidos.length} pedido${m.pedidos.length > 1 ? "s" : ""})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={handleSubmit}
+              disabled={!mesaId || submitting}
+              className="h-10 px-5 font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
+            >
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /> Crear pedido</>}
+            </Button>
           </div>
         </Card>
-      </div>
+      )}
+
+      {/* ── MOBILE: botón flotante carrito ── */}
+      {totalItems > 0 && (
+        <button
+          onClick={() => setCarritoOpen(true)}
+          className="lg:hidden fixed bottom-20 right-4 z-40 flex items-center gap-3 bg-primary text-primary-foreground px-5 py-3 rounded-2xl shadow-xl shadow-primary/40 font-bold text-sm animate-fade-in"
+        >
+          <ShoppingCart className="w-5 h-5" />
+          <span>{totalItems} {totalItems === 1 ? "item" : "items"}</span>
+          <span className="font-extrabold">{fmtPrecio(totalPrecio)}</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      )}
+
+      {/* ── MOBILE: Dialog/Drawer para confirmar pedido ── */}
+      <Dialog open={carritoOpen} onOpenChange={setCarritoOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-primary" />
+              Tu pedido
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {Object.entries(carrito).map(([id, qty]) => {
+              const item = catalogo.find(i => i.id === id)
+              if (!item) return null
+              return (
+                <div key={id} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-0">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => sub(id)} className="w-6 h-6 rounded bg-secondary flex items-center justify-center">
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="font-bold text-foreground min-w-[1.25rem] text-center text-sm">{qty}</span>
+                      <button onClick={() => add(id)} className="w-6 h-6 rounded bg-primary flex items-center justify-center">
+                        <Plus className="w-3 h-3 text-primary-foreground" />
+                      </button>
+                    </div>
+                    <span className="text-sm text-muted-foreground truncate max-w-[120px]">
+                      {item.emoji} {item.nombre}
+                    </span>
+                  </div>
+                  <span className="font-bold text-primary text-sm flex-shrink-0">
+                    {fmtPrecio(item.precio * qty)}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-border/50">
+            <span className="font-semibold text-foreground">Total</span>
+            <span className="font-extrabold text-primary text-lg">{fmtPrecio(totalPrecio)}</span>
+          </div>
+
+          <Select value={mesaId} onValueChange={setMesaId}>
+            <SelectTrigger className="w-full h-11">
+              <SelectValue placeholder={loadingMesas ? "Cargando mesas..." : "Seleccionar mesa"} />
+            </SelectTrigger>
+            <SelectContent>
+              {mesas.map(m => (
+                <SelectItem key={m.id} value={m.id}>
+                  {m.label} {m.pedidos.length > 0 ? `(${m.pedidos.length} activo${m.pedidos.length > 1 ? "s" : ""})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setCarritoOpen(false)} className="flex-1">
+              Seguir agregando
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!mesaId || submitting}
+              className="flex-1 bg-primary hover:bg-primary/90 font-bold gap-1.5"
+            >
+              {submitting
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <><CheckCircle2 className="w-4 h-4" /> Crear pedido</>
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -246,8 +330,8 @@ function CatalogoSkeleton() {
       <div className="flex gap-2">
         {[1,2,3,4].map(i => <Skeleton key={i} className="h-8 w-20 rounded-full" />)}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-        {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {Array.from({length: 8}).map((_, i) => <Skeleton key={i} className="h-36 rounded-xl" />)}
       </div>
     </div>
   )
