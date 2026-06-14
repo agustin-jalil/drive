@@ -2,13 +2,12 @@
 import { useState, useMemo } from "react"
 import { useStore } from "@/context/cafeteria-store"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import {
   Plus, Minus, ShoppingCart, Loader2, CheckCircle2, ChevronRight,
@@ -25,12 +24,12 @@ export function CatalogoCrearPedido() {
   const { catalogo, categorias, mesas, loadingCatalogo, loadingMesas, crearPedido } = useStore()
   const router = useRouter()
 
-  const [carrito, setCarrito]               = useState<Carrito>({})
+  const [carrito, setCarrito]                 = useState<Carrito>({})
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>("todas")
-  const [mesaId, setMesaId]                 = useState<string>("")
-  const [submitting, setSubmitting]         = useState(false)
-  const [success, setSuccess]               = useState(false)
-  const [carritoOpen, setCarritoOpen]       = useState(false)
+  const [mesaId, setMesaId]                   = useState<string>("")
+  const [submitting, setSubmitting]           = useState(false)
+  const [success, setSuccess]                 = useState(false)
+  const [carritoOpen, setCarritoOpen]         = useState(false)
 
   const itemsFiltrados = useMemo(() =>
     categoriaFiltro === "todas"
@@ -39,14 +38,14 @@ export function CatalogoCrearPedido() {
     [catalogo, categoriaFiltro]
   )
 
-  const totalItems = Object.values(carrito).reduce((a, b) => a + b, 0)
+  const totalItems  = Object.values(carrito).reduce((a, b) => a + b, 0)
   const totalPrecio = Object.entries(carrito).reduce((acc, [id, qty]) => {
     const item = catalogo.find(i => i.id === id)
     return acc + (item?.precio ?? 0) * qty
   }, 0)
 
-  const add  = (id: string) => setCarrito(c => ({ ...c, [id]: (c[id] ?? 0) + 1 }))
-  const sub  = (id: string) => setCarrito(c => {
+  const add   = (id: string) => setCarrito(c => ({ ...c, [id]: (c[id] ?? 0) + 1 }))
+  const sub   = (id: string) => setCarrito(c => {
     const n = (c[id] ?? 0) - 1
     if (n <= 0) { const { [id]: _, ...rest } = c; return rest }
     return { ...c, [id]: n }
@@ -86,7 +85,7 @@ export function CatalogoCrearPedido() {
         </div>
       )}
 
-      {/* ── Filtro categorías — scroll horizontal ── */}
+      {/* ── Filtro categorías ── */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4 -mx-4 px-4 lg:mx-0 lg:px-0">
         <button
           onClick={() => setCategoriaFiltro("todas")}
@@ -121,39 +120,35 @@ export function CatalogoCrearPedido() {
         {itemsFiltrados.map(item => {
           const qty = carrito[item.id] ?? 0
           return (
-            <Card
+            <div
               key={item.id}
               className={cn(
-                "flex flex-col transition-all duration-200 border overflow-hidden",
+                "bg-card text-card-foreground rounded-xl p-3 shadow-sm flex flex-col transition-all duration-200 border overflow-hidden",
                 qty > 0
                   ? "border-primary/60 bg-primary/5 shadow-md shadow-primary/10"
                   : "border-border/50"
               )}
             >
-              {/* Contenido */}
-              <div className="p-3 flex flex-col gap-1.5 flex-1">
-                {/* Emoji */}
+              {/* Info */}
+              <div className="flex flex-col gap-1 flex-1">
                 {item.emoji && (
-                  <span className="text-xl leading-none">{item.emoji}</span>
+                  <span className="text-lg leading-none">{item.emoji}</span>
                 )}
-                {/* Nombre */}
-                <p className="font-semibold text-foreground text-xs leading-snug line-clamp-2 flex-1">
+                <p className="font-semibold text-foreground text-xs leading-tight line-clamp-2 min-h-[32px]">
                   {item.nombre}
                 </p>
-                {/* Descripción — solo desktop */}
                 {item.descripcion && (
                   <p className="hidden lg:block text-[10px] text-muted-foreground leading-tight line-clamp-2">
                     {item.descripcion}
                   </p>
                 )}
-                {/* Precio */}
-                <p className="font-extrabold text-primary text-sm mt-auto">
+                <p className="font-extrabold text-primary text-sm mt-1">
                   {fmtPrecio(item.precio)}
                 </p>
               </div>
 
-              {/* Controles — siempre abajo */}
-              <div className="px-3 pb-3">
+              {/* Controles */}
+              <div className="mt-2">
                 {qty === 0 ? (
                   <button
                     onClick={() => add(item.id)}
@@ -165,7 +160,7 @@ export function CatalogoCrearPedido() {
                   <div className="flex items-center justify-between gap-1">
                     <button
                       onClick={() => sub(item.id)}
-                      className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors flex-shrink-0"
+                      className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -174,21 +169,21 @@ export function CatalogoCrearPedido() {
                     </span>
                     <button
                       onClick={() => add(item.id)}
-                      className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center hover:bg-primary/80 transition-colors flex-shrink-0"
+                      className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center hover:bg-primary/80 transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5 text-primary-foreground" />
                     </button>
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
           )
         })}
       </div>
 
       {/* ── DESKTOP: resumen pedido ── */}
       {totalItems > 0 && (
-        <Card className="hidden lg:block mt-6 p-5 border-primary/40 bg-primary/5">
+        <div className="hidden lg:block mt-6 bg-primary/5 border border-primary/40 rounded-xl p-5">
           <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
             <ShoppingCart className="w-4 h-4 text-primary" />
             Resumen del pedido
@@ -237,10 +232,10 @@ export function CatalogoCrearPedido() {
               }
             </Button>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* ── MOBILE: botón flotante ── */}
+      {/* ── MOBILE: botón flotante full-width ── */}
       {totalItems > 0 && (
         <button
           onClick={() => setCarritoOpen(true)}
@@ -251,7 +246,7 @@ export function CatalogoCrearPedido() {
             <span>{totalItems} {totalItems === 1 ? "item" : "items"}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-extrabold">{fmtPrecio(totalPrecio)}</span>
+            <span className="font-extrabold tabular-nums">{fmtPrecio(totalPrecio)}</span>
             <ChevronRight className="w-4 h-4" />
           </div>
         </button>
@@ -259,7 +254,7 @@ export function CatalogoCrearPedido() {
 
       {/* ── MOBILE: Dialog carrito ── */}
       <Dialog open={carritoOpen} onOpenChange={setCarritoOpen}>
-        <DialogContent className="max-w-sm w-[calc(100%-2rem)] rounded-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-sm w-[calc(100%-2rem)] rounded-2xl p-0 overflow-hidden gap-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
             <DialogTitle className="flex items-center gap-2 text-base">
               <ShoppingCart className="w-4 h-4 text-primary" />
@@ -268,33 +263,30 @@ export function CatalogoCrearPedido() {
           </DialogHeader>
 
           {/* Items */}
-          <div className="px-5 py-3 space-y-2 max-h-[40vh] overflow-y-auto">
+          <div className="px-5 py-3 space-y-1 max-h-[38vh] overflow-y-auto">
             {Object.entries(carrito).map(([id, qty]) => {
               const item = catalogo.find(i => i.id === id)
               if (!item) return null
               return (
-                <div key={id} className="flex items-center gap-3 py-1.5 border-b border-border/20 last:border-0">
-                  {/* Controles qty */}
+                <div key={id} className="flex items-center gap-3 py-2 border-b border-border/20 last:border-0">
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       onClick={() => sub(id)}
-                      className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
+                      className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center"
                     >
                       <Minus className="w-3 h-3" />
                     </button>
                     <span className="font-bold text-foreground text-sm min-w-[1.25rem] text-center tabular-nums">{qty}</span>
                     <button
                       onClick={() => add(id)}
-                      className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center hover:bg-primary/80 transition-colors"
+                      className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center"
                     >
                       <Plus className="w-3 h-3 text-primary-foreground" />
                     </button>
                   </div>
-                  {/* Nombre */}
-                  <span className="text-sm text-muted-foreground truncate flex-1 flex items-center gap-1">
+                  <span className="text-sm text-muted-foreground truncate flex-1">
                     {item.emoji} {item.nombre}
                   </span>
-                  {/* Subtotal */}
                   <span className="font-bold text-primary text-sm flex-shrink-0 tabular-nums">
                     {fmtPrecio(item.precio * qty)}
                   </span>
@@ -303,13 +295,12 @@ export function CatalogoCrearPedido() {
             })}
           </div>
 
-          {/* Total + mesa + acciones */}
+          {/* Total + mesa + botones */}
           <div className="px-5 pb-5 pt-3 space-y-3 border-t border-border/50">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-foreground">Total</span>
               <span className="font-extrabold text-primary text-xl tabular-nums">{fmtPrecio(totalPrecio)}</span>
             </div>
-
             <Select value={mesaId} onValueChange={setMesaId}>
               <SelectTrigger className="w-full h-11">
                 <SelectValue placeholder={loadingMesas ? "Cargando mesas..." : "¿Para qué mesa?"} />
@@ -322,13 +313,8 @@ export function CatalogoCrearPedido() {
                 ))}
               </SelectContent>
             </Select>
-
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setCarritoOpen(false)}
-                className="flex-1 h-11"
-              >
+              <Button variant="outline" onClick={() => setCarritoOpen(false)} className="flex-1 h-11">
                 Seguir
               </Button>
               <Button
@@ -345,6 +331,7 @@ export function CatalogoCrearPedido() {
           </div>
         </DialogContent>
       </Dialog>
+
     </div>
   )
 }
