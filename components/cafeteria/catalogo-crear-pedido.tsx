@@ -86,7 +86,7 @@ export function CatalogoCrearPedido() {
       )}
 
       {/* ── Filtro categorías ── */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4 -mx-4 px-4 lg:mx-0 lg:px-0">
+      <div className="flex flex-wrap gap-2 mb-4">
         <button
           onClick={() => setCategoriaFiltro("todas")}
           className={cn(
@@ -116,7 +116,7 @@ export function CatalogoCrearPedido() {
       </div>
 
       {/* ── Grid catálogo ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {itemsFiltrados.map(item => {
           const qty = carrito[item.id] ?? 0
           return (
@@ -342,7 +342,7 @@ function CatalogoSkeleton() {
       <div className="flex gap-2 overflow-x-auto pb-2">
         {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-8 w-20 rounded-full flex-shrink-0" />)}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {Array.from({ length: 8 }).map((_, i) => (
           <Skeleton key={i} className="h-32 rounded-xl" />
         ))}
