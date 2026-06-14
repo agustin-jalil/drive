@@ -17,25 +17,50 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   RefreshCw, Clock, ChevronRight, PackageCheck,
   Plus, CheckCircle2, Circle, Timer, Truck, History,
+  ClipboardList,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import type { Pedido } from "@/lib/api"
 
+// ── Helpers puros ─────────────────────────────────────────────────────────────
+const ESTADO_COLOR: Record<string, string> = {
+  PENDIENTE:      "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+  EN_PREPARACION: "bg-primary/15 text-primary border-primary/30",
+  LISTO:          "bg-green-500/15 text-green-400 border-green-500/30",
+  ENTREGADO:      "bg-blue-500/15 text-blue-400 border-blue-500/30",
+}
+const ESTADO_LABEL: Record<string, string> = {
+  PENDIENTE:      "Pendiente",
+  EN_PREPARACION: "En preparación",
+  LISTO:          "Listo",
+  ENTREGADO:      "Entregado",
+}
+const ACCION_LABEL: Record<string, string> = {
+  PENDIENTE:      "Preparar",
+  EN_PREPARACION: "Marcar listo",
+  LISTO:          "Entregar",
+  ENTREGADO:      "Cobrar y cerrar",
+}
+const ACCION_CLS: Record<string, string> = {
+  PENDIENTE:      "bg-yellow-500 hover:bg-yellow-600 text-white",
+  EN_PREPARACION: "bg-primary hover:bg-primary/90 text-primary-foreground",
+  LISTO:          "bg-green-600 hover:bg-green-700 text-white",
+  ENTREGADO:      "bg-blue-600 hover:bg-blue-700 text-white",
+}
 const ESTADO_ICON: Record<string, React.FC<{ className?: string }>> = {
   PENDIENTE:      Circle,
   EN_PREPARACION: Timer,
   LISTO:          CheckCircle2,
   ENTREGADO:      Truck,
-}
-
-const BTN_CFG: Record<string, { label: string; cls: string }> = {
-  PENDIENTE:      { label: "Preparar",        cls: "bg-yellow-500 hover:bg-yellow-600 text-white" },
-  EN_PREPARACION: { label: "Marcar listo",    cls: "bg-primary hover:bg-primary/90 text-primary-foreground" },
-  LISTO:          { label: "Entregar",        cls: "bg-green-600 hover:bg-green-700 text-white" },
-  ENTREGADO:      { label: "Cobrar y cerrar", cls: "bg-blue-600 hover:bg-blue-700 text-white" },
 }
 
 const fmtPrecio = (n: number) =>
@@ -44,22 +69,20 @@ const fmtPrecio = (n: number) =>
 const fmtHora = (iso: string) =>
   new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
 
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function PedidosView() {
   const { refreshing, lastUpdated } = useStore()
   const { pedidos, loading, refetchPedidos, avanzarEstado, cerrarPedido } = usePedidosActivos()
 
-  // Modal confirmación cerrar
   const [pedidoACerrar, setPedidoACerrar] = useState<Pedido | null>(null)
+  const [resumenOpen,   setResumenOpen]   = useState(false)
 
   if (loading) return <PedidosSkeleton />
 
   const handleAccion = async (pedido: Pedido) => {
-    if (pedido.estado === "ENTREGADO") {
-      // Mostrar modal de confirmación antes de cerrar
-      setPedidoACerrar(pedido)
-    } else {
-      await avanzarEstado(pedido.id)
-    }
+    if (pedido.estado === "ENTREGADO") setPedidoACerrar(pedido)
+    else await avanzarEstado(pedido.id)
   }
 
   const confirmarCierre = async () => {
@@ -67,6 +90,8 @@ export function PedidosView() {
     await cerrarPedido(pedidoACerrar.id)
     setPedidoACerrar(null)
   }
+
+  const totalGeneral = pedidos.reduce((acc, p) => acc + p.total, 0)
 
   return (
     <>
@@ -84,19 +109,89 @@ export function PedidosView() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={confirmarCierre}
-            >
+            <AlertDialogAction className="bg-blue-600 hover:bg-blue-700 text-white" onClick={confirmarCierre}>
               Confirmar cobro y cerrar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* ── Modal resumen pedidos ── */}
+      <Dialog open={resumenOpen} onOpenChange={setResumenOpen}>
+        <DialogContent className="max-w-sm w-[calc(100%-2rem)] rounded-2xl p-0 overflow-hidden gap-0">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <ClipboardList className="w-4 h-4 text-primary" />
+              Resumen activo
+            </DialogTitle>
+          </DialogHeader>
+
+          {pedidos.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+              No hay pedidos activos
+            </div>
+          ) : (
+            <div className="px-5 py-3 space-y-2 max-h-[55vh] overflow-y-auto">
+              {pedidos.map(p => {
+                const colorClass  = ESTADO_COLOR[p.estado] ?? ""
+                const estadoLabel = ESTADO_LABEL[p.estado] ?? p.estado
+                const accionCls   = ACCION_CLS[p.estado]
+                const accionLabel = ACCION_LABEL[p.estado]
+                return (
+                  <div key={p.id} className="flex items-center gap-3 py-2.5 border-b border-border/20 last:border-0">
+                    {/* Número + mesa */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[10px] font-bold text-muted-foreground bg-secondary rounded px-1.5 py-0.5">
+                          #{p.numero}
+                        </span>
+                        <span className="text-sm font-semibold text-foreground truncate">{p.mesa.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={cn("text-[10px] px-2 py-0.5 border rounded-full font-semibold", colorClass)}>
+                          {estadoLabel}
+                        </Badge>
+                        <span className="text-xs font-bold text-primary tabular-nums">{fmtPrecio(p.total)}</span>
+                      </div>
+                    </div>
+                    {/* Botón acción */}
+                    {accionLabel && (
+                      <button
+                        onClick={async () => {
+                          await handleAccion(p)
+                          // si no abre modal de cierre, cerrar resumen
+                          if (p.estado !== "ENTREGADO") setResumenOpen(false)
+                        }}
+                        className={cn(
+                          "flex-shrink-0 h-8 px-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors",
+                          accionCls
+                        )}
+                      >
+                        {accionLabel}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Footer total */}
+          {pedidos.length > 0 && (
+            <div className="px-5 py-3 border-t border-border/50 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                {pedidos.length} pedido{pedidos.length !== 1 ? "s" : ""} activo{pedidos.length !== 1 ? "s" : ""}
+              </span>
+              <span className="font-extrabold text-primary text-lg tabular-nums">{fmtPrecio(totalGeneral)}</span>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-4">
+
         {/* ── Barra superior ── */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">
               {pedidos.length === 0
@@ -105,31 +200,29 @@ export function PedidosView() {
             </p>
             {refreshing && <RefreshCw className="w-3.5 h-3.5 text-primary animate-spin" />}
             {lastUpdated && !refreshing && (
-              <span className="text-[10px] text-muted-foreground/60">
+              <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
                 · {lastUpdated.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               variant="ghost" size="sm"
               onClick={refetchPedidos}
               disabled={refreshing}
-              className="gap-1.5 text-muted-foreground hover:text-foreground h-8"
+              className="gap-1 text-muted-foreground hover:text-foreground h-8 px-2"
             >
               <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
-              <span className="text-xs">Actualizar</span>
+              <span className="text-xs hidden sm:inline">Actualizar</span>
             </Button>
-            {/* Botón historial */}
             <Link href="/historial">
-              <Button
-                variant="outline" size="sm"
-                className="h-8 text-xs font-bold uppercase tracking-wide gap-1 border-border/60 text-muted-foreground hover:text-foreground"
+              <Button variant="outline" size="sm"
+                className="h-8 text-xs font-bold uppercase tracking-wide gap-1 border-border/60 text-muted-foreground hover:text-foreground px-2 sm:px-3"
               >
-                <History className="w-3.5 h-3.5" /> Historial
+                <History className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Historial</span>
               </Button>
             </Link>
-            {/* Botón nuevo — solo desktop */}
             <Link href="/catalogo" className="hidden lg:block">
               <Button className="h-8 text-xs font-bold uppercase tracking-wide bg-primary text-primary-foreground hover:bg-primary/90 gap-1">
                 <Plus className="w-3.5 h-3.5" /> Nuevo pedido
@@ -138,38 +231,36 @@ export function PedidosView() {
           </div>
         </div>
 
-        {pedidos.length === 0 ? (
-          <EmptyPedidos />
-        ) : (
+        {pedidos.length === 0 ? <EmptyPedidos /> : (
           <>
-            {/* MOBILE: cards verticales */}
+            {/* ══ MOBILE / TABLET: cards ══ */}
             <div className="flex flex-col gap-3 lg:hidden">
               {pedidos.map(p => (
                 <PedidoCard key={p.id} pedido={p} onAccion={handleAccion} />
               ))}
             </div>
 
-            {/* DESKTOP: tabla */}
+            {/* ══ DESKTOP: tabla ══ */}
             <Card className="hidden lg:block border-border/60 overflow-hidden">
-              <div className="grid grid-cols-[48px_120px_1fr_110px_150px_130px] gap-3 px-5 py-3 border-b border-border/50 bg-secondary/40">
-                {["#", "Mesa", "Pedido", "Total", "Estado", "Acción"].map(h => (
+              <div className="grid grid-cols-[40px_130px_1fr_100px_140px_120px] gap-3 px-5 py-3 border-b border-border/50 bg-secondary/40">
+                {["#", "Mesa", "Items", "Total", "Estado", "Acción"].map(h => (
                   <p key={h} className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{h}</p>
                 ))}
               </div>
               <div className="divide-y divide-border/30">
                 {pedidos.map(pedido => {
-                  const colorClass  = useEstadoColor(pedido.estado)
-                  const estadoLabel = useEstadoLabel(pedido.estado)
-                  const btnCfg      = BTN_CFG[pedido.estado]
+                  const colorClass  = ESTADO_COLOR[pedido.estado] ?? ""
+                  const estadoLabel = ESTADO_LABEL[pedido.estado] ?? pedido.estado
+                  const accionCls   = ACCION_CLS[pedido.estado]
+                  const accionLabel = ACCION_LABEL[pedido.estado]
                   const Icon        = ESTADO_ICON[pedido.estado] ?? Circle
                   const resumen     = pedido.items
                     .map(i => `${i.item.emoji ?? "•"} ${i.item.nombre}${i.cantidad > 1 ? ` ×${i.cantidad}` : ""}`)
                     .join("  ·  ")
-
                   return (
                     <div
                       key={pedido.id}
-                      className="grid grid-cols-[48px_120px_1fr_110px_150px_130px] gap-3 px-5 py-3.5 items-center hover:bg-secondary/20 transition-colors duration-150"
+                      className="grid grid-cols-[40px_130px_1fr_100px_140px_120px] gap-3 px-5 py-3.5 items-center hover:bg-secondary/20 transition-colors"
                     >
                       <span className="text-xs font-bold text-muted-foreground bg-secondary rounded px-1.5 py-0.5 text-center w-fit">
                         #{pedido.numero}
@@ -180,19 +271,19 @@ export function PedidosView() {
                           <Clock className="w-3 h-3" />{fmtHora(pedido.creadoEn)}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate pr-4" title={resumen}>{resumen}</p>
-                      <p className="text-sm font-extrabold text-primary">{fmtPrecio(pedido.total)}</p>
+                      <p className="text-xs text-muted-foreground truncate pr-2" title={resumen}>{resumen}</p>
+                      <p className="text-sm font-extrabold text-primary tabular-nums">{fmtPrecio(pedido.total)}</p>
                       <Badge className={cn("text-[10px] px-2.5 py-1 border rounded-full font-semibold flex items-center gap-1.5 w-fit", colorClass)}>
                         <Icon className="w-3 h-3" />
                         {estadoLabel}
                       </Badge>
-                      {btnCfg && (
+                      {accionLabel && (
                         <Button
                           size="sm"
                           onClick={() => handleAccion(pedido)}
-                          className={cn("h-8 text-xs font-bold uppercase tracking-wide px-3 gap-1", btnCfg.cls)}
+                          className={cn("h-8 text-xs font-bold uppercase tracking-wide px-3 gap-1", accionCls)}
                         >
-                          {btnCfg.label}
+                          {accionLabel}
                           <ChevronRight className="w-3 h-3" />
                         </Button>
                       )}
@@ -204,58 +295,73 @@ export function PedidosView() {
           </>
         )}
       </div>
+
+      {/* ── FAB resumen — sticky abajo a la derecha, solo mobile ── */}
+      {pedidos.length > 0 && (
+        <button
+          onClick={() => setResumenOpen(true)}
+          className="lg:hidden fixed bottom-20 right-4 z-40 flex items-center gap-2 bg-primary text-primary-foreground pl-4 pr-3 py-3 rounded-2xl shadow-xl shadow-primary/40 font-bold text-sm animate-fade-in"
+        >
+          <ClipboardList className="w-4 h-4" />
+          <span>{pedidos.length}</span>
+          <span className="tabular-nums text-xs font-semibold opacity-90">{fmtPrecio(totalGeneral)}</span>
+          <ChevronRight className="w-4 h-4 opacity-70" />
+        </button>
+      )}
     </>
   )
 }
 
+// ── Card mobile ───────────────────────────────────────────────────────────────
 function PedidoCard({ pedido, onAccion }: { pedido: Pedido; onAccion: (p: Pedido) => Promise<void> }) {
-  const colorClass  = useEstadoColor(pedido.estado)
-  const estadoLabel = useEstadoLabel(pedido.estado)
-  const accionLabel = useAccionLabel(pedido.estado)
+  const colorClass  = ESTADO_COLOR[pedido.estado] ?? ""
+  const estadoLabel = ESTADO_LABEL[pedido.estado] ?? pedido.estado
+  const accionLabel = ACCION_LABEL[pedido.estado]
+  const accionCls   = ACCION_CLS[pedido.estado]
 
   return (
-    <Card className="p-4 border-border/50 transition-all duration-200 hover:border-primary/40">
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-muted-foreground bg-secondary rounded px-1.5 py-0.5">
+    <Card className={cn(
+      "p-4 border transition-all duration-200",
+      pedido.estado === "LISTO"     ? "border-green-500/40 bg-green-500/5"
+      : pedido.estado === "ENTREGADO" ? "border-blue-500/40 bg-blue-500/5"
+      : "border-border/50 hover:border-primary/40"
+    )}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-bold text-muted-foreground bg-secondary rounded px-1.5 py-0.5 flex-shrink-0">
             #{pedido.numero}
           </span>
-          <span className="font-semibold text-foreground">{pedido.mesa.label}</span>
+          <span className="font-bold text-foreground text-sm truncate">{pedido.mesa.label}</span>
         </div>
-        <Badge className={cn("text-[10px] px-2 py-0.5 border rounded-full font-medium flex-shrink-0", colorClass)}>
+        <Badge className={cn("text-[10px] px-2 py-0.5 border rounded-full font-semibold flex-shrink-0", colorClass)}>
           {estadoLabel}
         </Badge>
       </div>
 
-      <div className="space-y-1 mb-3">
+      <div className="space-y-1.5 mb-3 pl-1">
         {pedido.items.map(it => (
-          <div key={it.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>{it.item.emoji ?? "•"}</span>
-            <span className="truncate">{it.item.nombre}</span>
-            <span className="ml-auto flex-shrink-0 font-medium text-foreground">×{it.cantidad}</span>
-            <span className="text-muted-foreground/60 flex-shrink-0">
+          <div key={it.id} className="flex items-center gap-2 text-xs">
+            <span className="text-base leading-none flex-shrink-0">{it.item.emoji ?? "•"}</span>
+            <span className="text-muted-foreground truncate flex-1">{it.item.nombre}</span>
+            <span className="font-semibold text-foreground flex-shrink-0">×{it.cantidad}</span>
+            <span className="text-muted-foreground/70 flex-shrink-0 tabular-nums">
               {fmtPrecio(it.item.precio * it.cantidad)}
             </span>
           </div>
         ))}
       </div>
 
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
+      <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-border/40">
         <div className="flex items-center gap-2">
-          <Clock className="w-3 h-3 text-muted-foreground" />
+          <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
           <span className="text-xs text-muted-foreground">{fmtHora(pedido.creadoEn)}</span>
-          <span className="font-extrabold text-primary text-sm">{fmtPrecio(pedido.total)}</span>
+          <span className="font-extrabold text-primary text-sm tabular-nums">{fmtPrecio(pedido.total)}</span>
         </div>
         {accionLabel && (
           <Button
             size="sm"
             onClick={() => onAccion(pedido)}
-            className={cn(
-              "h-8 text-xs px-3 gap-1 font-bold uppercase tracking-wide",
-              pedido.estado === "ENTREGADO"
-                ? "bg-blue-600 hover:bg-blue-700 text-white"
-                : "bg-primary hover:bg-primary/90 text-primary-foreground"
-            )}
+            className={cn("h-9 text-xs px-4 gap-1 font-bold uppercase tracking-wide flex-shrink-0", accionCls)}
           >
             {accionLabel}
             <ChevronRight className="w-3 h-3" />
@@ -286,12 +392,12 @@ function EmptyPedidos() {
 function PedidosSkeleton() {
   return (
     <div className="space-y-3">
-      <div className="flex justify-between">
-        <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-8 w-28" />
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-5 w-36" />
+        <Skeleton className="h-8 w-24" />
       </div>
       <div className="lg:hidden space-y-3">
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-36 rounded-xl" />)}
       </div>
       <Card className="hidden lg:block border-border/60 overflow-hidden">
         <div className="px-5 py-3 border-b border-border/50 bg-secondary/40">
