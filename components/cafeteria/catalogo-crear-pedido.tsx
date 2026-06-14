@@ -239,16 +239,12 @@ export function CatalogoCrearPedido() {
       {totalItems > 0 && (
         <button
           onClick={() => setCarritoOpen(true)}
-          className="lg:hidden fixed bottom-20 left-4 right-4 z-40 flex items-center justify-between bg-primary text-primary-foreground px-5 py-3.5 rounded-2xl shadow-xl shadow-primary/40 font-bold text-sm animate-fade-in"
+          className="lg:hidden fixed bottom-20 right-4 z-40 flex items-center gap-2 bg-primary text-primary-foreground pl-4 pr-3 py-3 rounded-2xl shadow-xl shadow-primary/40 font-bold text-sm animate-fade-in"
         >
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="w-5 h-5" />
-            <span>{totalItems} {totalItems === 1 ? "item" : "items"}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold tabular-nums">{fmtPrecio(totalPrecio)}</span>
-            <ChevronRight className="w-4 h-4" />
-          </div>
+          <ShoppingCart className="w-4 h-4" />
+          <span>{totalItems}</span>
+          <span className="tabular-nums text-xs font-semibold opacity-90">{fmtPrecio(totalPrecio)}</span>
+          <ChevronRight className="w-4 h-4 opacity-70" />
         </button>
       )}
 
