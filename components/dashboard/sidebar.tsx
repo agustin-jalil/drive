@@ -1,31 +1,31 @@
 "use client"
-
-import { ClipboardList, MapPin, BookOpen, Settings, LogOut, Wrench } from "lucide-react"
+import { ClipboardList, MapPin, BookOpen, Settings, LogOut, Coffee } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useAuth } from "@/context/auth-store"
 
 const menuItems = [
   { icon: ClipboardList, label: "Pedidos",  href: "/" },
   { icon: MapPin,        label: "Mesas",    href: "/mesas" },
   { icon: BookOpen,      label: "Catálogo", href: "/catalogo" },
 ]
-const generalItems = [
-  { icon: Settings, label: "Config", href: "/settings" },
-  { icon: LogOut,   label: "Salir",  href: "/logout" },
-]
 
-// ── Desktop sidebar ──────────────────────────────────────────
 export function Sidebar() {
   const [hovered, setHovered] = useState<string | null>(null)
   const pathname = usePathname()
+  const { usuario, logout } = useAuth()
+
+  const iniciales = usuario?.nombre
+    ? usuario.nombre.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+    : "??"
 
   return (
     <aside className="fixed top-0 left-0 w-64 bg-sidebar border-r border-sidebar-border p-5 h-screen flex-col hidden lg:flex">
       <Link href="/" className="flex items-center gap-3 group mb-8">
         <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/30 transition-transform group-hover:scale-105">
-          <Wrench className="w-5 h-5 text-primary-foreground" />
+          <Coffee className="w-5 h-5 text-primary-foreground" />
         </div>
         <div>
           <p className="font-extrabold italic tracking-wider uppercase text-foreground text-lg leading-none">DRIVE</p>
@@ -45,8 +45,9 @@ export function Sidebar() {
                   onMouseLeave={() => setHovered(null)}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                    active ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                           : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                    active
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                     hovered === item.label && !active && "translate-x-1"
                   )}>
                   <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -56,47 +57,33 @@ export function Sidebar() {
             })}
           </nav>
         </div>
+
         <div>
-          <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-widest px-2">General</p>
           <nav className="space-y-0.5">
-            {generalItems.map(item => {
-              const active = pathname === item.href
-              return (
-                <Link key={item.href} href={item.href}
-                  onMouseEnter={() => setHovered(item.label)}
-                  onMouseLeave={() => setHovered(null)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                    active ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                           : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                    hovered === item.label && !active && "translate-x-1"
-                  )}>
-                  <item.icon className="w-4 h-4 flex-shrink-0" />
-                  {item.label}
-                </Link>
-              )
-            })}
+            <button
+              onClick={logout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200">
+              <LogOut className="w-4 h-4" /> Cerrar sesión
+            </button>
           </nav>
         </div>
       </div>
 
       <div className="pt-4 border-t border-sidebar-border flex items-center gap-3 px-2">
         <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
-          <span className="text-xs font-bold text-primary">AD</span>
+          <span className="text-xs font-bold text-primary">{iniciales}</span>
         </div>
-        <div>
-          <p className="text-xs font-semibold text-foreground">Admin</p>
-          <p className="text-[10px] text-muted-foreground">drive@sistema.com</p>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-foreground truncate">{usuario?.nombre ?? "Usuario"}</p>
+          <p className="text-[10px] text-muted-foreground truncate">{usuario?.rol ?? ""}</p>
         </div>
       </div>
     </aside>
   )
 }
 
-// ── Mobile bottom nav ────────────────────────────────────────
 export function BottomNav() {
   const pathname = usePathname()
-
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar border-t border-sidebar-border">
       <div className="flex items-center justify-around h-16 px-2">
@@ -128,13 +115,13 @@ export function BottomNav() {
   )
 }
 
-// ── Mobile header ────────────────────────────────────────────
 export function MobileTopBar({ title }: { title: string }) {
+  const { logout, usuario } = useAuth()
   return (
     <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar sticky top-0 z-40">
       <div className="flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
-          <Wrench className="w-3.5 h-3.5 text-primary-foreground" />
+          <Coffee className="w-3.5 h-3.5 text-primary-foreground" />
         </div>
         <div>
           <p className="font-extrabold italic tracking-wider uppercase text-foreground text-sm leading-none">DRIVE</p>
@@ -142,6 +129,9 @@ export function MobileTopBar({ title }: { title: string }) {
         </div>
       </div>
       <p className="font-extrabold italic uppercase tracking-wide text-foreground text-sm">{title}</p>
+      <button onClick={logout} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors">
+        <LogOut className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+      </button>
     </div>
   )
 }

@@ -1,113 +1,178 @@
 "use client"
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useTransition } from "react"
+import { api, type Pedido, type ItemCatalogo, type Categoria, type Mesa } from "@/lib/api"
 
-import React, { createContext, useContext, useState } from "react"
-import type { Pedido, ItemPedido, EstadoPedido } from "@/types/cafeteria"
-
-const pedidosIniciales: Pedido[] = [
-  {
-    id: "ped-001", numero: 1, mesaId: "mesa-3", mesaLabel: "Mesa 3",
-    items: [
-      { id: "i-3",  nombre: "Latte",        emoji: "🥛", precio: 1200, cantidad: 2 },
-      { id: "i-12", nombre: "Medialunas x3", emoji: "🥐", precio: 900,  cantidad: 1 },
-    ],
-    estado: "en_preparacion", total: 3300, hora: "10:15",
-  },
-  {
-    id: "ped-002", numero: 2, mesaId: "barra-2", mesaLabel: "Barra 2",
-    items: [{ id: "i-1", nombre: "Espresso", emoji: "☕", precio: 800, cantidad: 1 }],
-    estado: "listo", total: 800, hora: "10:28",
-  },
-  {
-    id: "ped-003", numero: 3, mesaId: "mesa-1", mesaLabel: "Mesa 1",
-    items: [
-      { id: "i-9",  nombre: "Frappé",     emoji: "🧋", precio: 1500, cantidad: 2 },
-      { id: "i-16", nombre: "Cheesecake", emoji: "🍰", precio: 1600, cantidad: 2 },
-    ],
-    estado: "pendiente", total: 6200, hora: "10:40",
-  },
-]
-
-export const CATEGORIAS = [
-  { id: "cat-1", nombre: "Cafés",      emoji: "☕" },
-  { id: "cat-2", nombre: "Infusiones", emoji: "🍵" },
-  { id: "cat-3", nombre: "Fríos",      emoji: "🧊" },
-  { id: "cat-4", nombre: "Comidas",    emoji: "🥐" },
-  { id: "cat-5", nombre: "Postres",    emoji: "🍰" },
-]
-
-export const ITEMS_CATALOGO = [
-  { id: "i-1",  categoriaId: "cat-1", nombre: "Espresso",       emoji: "☕", precio: 800  },
-  { id: "i-2",  categoriaId: "cat-1", nombre: "Americano",      emoji: "☕", precio: 900  },
-  { id: "i-3",  categoriaId: "cat-1", nombre: "Latte",          emoji: "🥛", precio: 1200 },
-  { id: "i-4",  categoriaId: "cat-1", nombre: "Cappuccino",     emoji: "☕", precio: 1100 },
-  { id: "i-5",  categoriaId: "cat-1", nombre: "Cortado",        emoji: "☕", precio: 850  },
-  { id: "i-6",  categoriaId: "cat-2", nombre: "Té Verde",       emoji: "🍵", precio: 700  },
-  { id: "i-7",  categoriaId: "cat-2", nombre: "Manzanilla",     emoji: "🌼", precio: 650  },
-  { id: "i-8",  categoriaId: "cat-2", nombre: "Jengibre Limón", emoji: "🍋", precio: 750  },
-  { id: "i-9",  categoriaId: "cat-3", nombre: "Frappé",         emoji: "🧋", precio: 1500 },
-  { id: "i-10", categoriaId: "cat-3", nombre: "Cold Brew",      emoji: "🧊", precio: 1400 },
-  { id: "i-11", categoriaId: "cat-3", nombre: "Limonada",       emoji: "🍋", precio: 1000 },
-  { id: "i-12", categoriaId: "cat-4", nombre: "Medialunas x3",  emoji: "🥐", precio: 900  },
-  { id: "i-13", categoriaId: "cat-4", nombre: "Tostado Mixto",  emoji: "🥪", precio: 1400 },
-  { id: "i-14", categoriaId: "cat-4", nombre: "Avocado Toast",  emoji: "🥑", precio: 1800 },
-  { id: "i-15", categoriaId: "cat-5", nombre: "Brownie",        emoji: "🍫", precio: 1100 },
-  { id: "i-16", categoriaId: "cat-5", nombre: "Cheesecake",     emoji: "🍰", precio: 1600 },
-]
-
-export const MESAS_CONFIG = [
-  { id: "mesa-1",  label: "Mesa 1",  tipo: "mesa"  as const },
-  { id: "mesa-2",  label: "Mesa 2",  tipo: "mesa"  as const },
-  { id: "mesa-3",  label: "Mesa 3",  tipo: "mesa"  as const },
-  { id: "mesa-4",  label: "Mesa 4",  tipo: "mesa"  as const },
-  { id: "mesa-5",  label: "Mesa 5",  tipo: "mesa"  as const },
-  { id: "mesa-6",  label: "Mesa 6",  tipo: "mesa"  as const },
-  { id: "barra-1", label: "Barra 1", tipo: "barra" as const },
-  { id: "barra-2", label: "Barra 2", tipo: "barra" as const },
-  { id: "barra-3", label: "Barra 3", tipo: "barra" as const },
-  { id: "barra-4", label: "Barra 4", tipo: "barra" as const },
-  { id: "barra-5", label: "Barra 5", tipo: "barra" as const },
-  { id: "barra-6", label: "Barra 6", tipo: "barra" as const },
-]
-
-type StoreCtx = {
+type CafeteriaCtx = {
   pedidos: Pedido[]
-  crearPedido: (mesaId: string, mesaLabel: string, items: ItemPedido[]) => void
-  avanzarEstado: (pedidoId: string) => void
-  cerrarPedido: (pedidoId: string) => void
+  mesas: Mesa[]
+  catalogo: ItemCatalogo[]
+  categorias: Categoria[]
+  loadingPedidos: boolean
+  loadingMesas: boolean
+  loadingCatalogo: boolean
+  refreshing: boolean           // true solo en background refresh (sin skeleton)
+  error: string | null
+  lastUpdated: Date | null
+  refetchPedidos: () => Promise<void>
+  refetchMesas: () => Promise<void>
+  crearPedido: (mesaId: string, items: { itemId: string; cantidad: number }[]) => Promise<void>
+  avanzarEstado: (pedidoId: string) => Promise<void>
+  cerrarPedido: (pedidoId: string) => Promise<void>
   getPedidosMesa: (mesaId: string) => Pedido[]
 }
 
-const Ctx = createContext<StoreCtx | null>(null)
-let contador = pedidosIniciales.length + 1
-const FLUJO: EstadoPedido[] = ["pendiente", "en_preparacion", "listo", "entregado"]
+const Ctx = createContext<CafeteriaCtx | null>(null)
 
 export function CafeteriaStore({ children }: { children: React.ReactNode }) {
-  const [pedidos, setPedidos] = useState<Pedido[]>(pedidosIniciales)
+  const [pedidos,    setPedidos]    = useState<Pedido[]>([])
+  const [mesas,      setMesas]      = useState<Mesa[]>([])
+  const [catalogo,   setCatalogo]   = useState<ItemCatalogo[]>([])
+  const [categorias, setCategorias] = useState<Categoria[]>([])
 
-  const crearPedido = (mesaId: string, mesaLabel: string, items: ItemPedido[]) => {
-    const total = items.reduce((a, i) => a + i.precio * i.cantidad, 0)
-    const hora  = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
-    setPedidos(prev => [...prev, {
-      id: `ped-${Date.now()}`, numero: contador++,
-      mesaId, mesaLabel, items, estado: "pendiente", total, hora,
-    }])
-  }
+  // loadingXxx = true solo la primera vez (muestra skeleton)
+  const [loadingPedidos,  setLoadingPedidos]  = useState(true)
+  const [loadingMesas,    setLoadingMesas]    = useState(true)
+  const [loadingCatalogo, setLoadingCatalogo] = useState(true)
+  // refreshing = true en polls silenciosos (NO muestra skeleton)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error,        setError]       = useState<string | null>(null)
+  const [lastUpdated,  setLastUpdated] = useState<Date | null>(null)
 
-  const avanzarEstado = (pedidoId: string) =>
+  // Usamos ref para saber si ya cargamos la primera vez
+  const initializedPedidos = useRef(false)
+  const initializedMesas   = useRef(false)
+
+  // ── fetch silencioso (no muestra skeleton) ──────────────────────────────
+  const fetchPedidosSilent = useCallback(async () => {
+    try {
+      const data = await api.getPedidos()
+      // Actualizamos solo si cambió algo (evita re-render innecesario)
+      setPedidos(prev => {
+        const prevStr = JSON.stringify(prev.map(p => ({ id: p.id, estado: p.estado })))
+        const nextStr = JSON.stringify(data.map(p => ({ id: p.id, estado: p.estado })))
+        return prevStr === nextStr ? prev : data
+      })
+      setLastUpdated(new Date())
+    } catch (e: any) {
+      // Error silencioso en background, no mostramos al usuario
+      console.warn("Background refresh pedidos:", e.message)
+    }
+  }, [])
+
+  const fetchMesasSilent = useCallback(async () => {
+    try {
+      const data = await api.getMesas()
+      setMesas(prev => {
+        const prevStr = JSON.stringify(prev.map(m => ({ id: m.id, pedidos: m.pedidos.length })))
+        const nextStr = JSON.stringify(data.map(m => ({ id: m.id, pedidos: m.pedidos.length })))
+        return prevStr === nextStr ? prev : data
+      })
+    } catch (e: any) {
+      console.warn("Background refresh mesas:", e.message)
+    }
+  }, [])
+
+  // ── fetch inicial (muestra skeleton) ────────────────────────────────────
+  const refetchPedidos = useCallback(async () => {
+    if (!initializedPedidos.current) setLoadingPedidos(true)
+    else setRefreshing(true)
+    try {
+      const data = await api.getPedidos()
+      setPedidos(data)
+      setLastUpdated(new Date())
+      initializedPedidos.current = true
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoadingPedidos(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  const refetchMesas = useCallback(async () => {
+    if (!initializedMesas.current) setLoadingMesas(true)
+    else setRefreshing(true)
+    try {
+      const data = await api.getMesas()
+      setMesas(data)
+      initializedMesas.current = true
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoadingMesas(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  // ── montaje inicial ──────────────────────────────────────────────────────
+  useEffect(() => {
+    refetchPedidos()
+    refetchMesas()
+    api.getCategorias().then(setCategorias).catch(() => {})
+    api.getCatalogo().then(setCatalogo).catch(() => {}).finally(() => setLoadingCatalogo(false))
+  }, [refetchPedidos, refetchMesas])
+
+  // ── polling silencioso cada 30s ──────────────────────────────────────────
+  // SIN skeleton, SIN parpadeo — solo actualiza el estado si algo cambió
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!initializedPedidos.current) return
+      await fetchPedidosSilent()
+      await fetchMesasSilent()
+    }, 30_000)
+    return () => clearInterval(interval)
+  }, [fetchPedidosSilent, fetchMesasSilent])
+
+  // ── acciones ─────────────────────────────────────────────────────────────
+  const crearPedido = useCallback(async (mesaId: string, items: { itemId: string; cantidad: number }[]) => {
+    await api.crearPedido(mesaId, items)
+    await refetchPedidos()
+    await fetchMesasSilent()
+  }, [refetchPedidos, fetchMesasSilent])
+
+  const avanzarEstado = useCallback(async (pedidoId: string) => {
+    // Optimistic update — cambiamos el estado local ANTES de ir al server
     setPedidos(prev => prev.map(p => {
       if (p.id !== pedidoId) return p
-      const next = FLUJO[Math.min(FLUJO.indexOf(p.estado) + 1, FLUJO.length - 1)]
-      return { ...p, estado: next }
+      const flujo: Record<string, string> = {
+        PENDIENTE: "EN_PREPARACION", EN_PREPARACION: "LISTO",
+        LISTO: "ENTREGADO", ENTREGADO: "CERRADO",
+      }
+      return { ...p, estado: (flujo[p.estado] ?? p.estado) as any }
     }))
+    try {
+      await api.avanzarEstado(pedidoId)
+      // Confirmamos con el server en silencio
+      fetchPedidosSilent()
+    } catch (e) {
+      // Si falla, revertimos
+      await refetchPedidos()
+    }
+  }, [refetchPedidos, fetchPedidosSilent])
 
-  const cerrarPedido = (pedidoId: string) =>
+  const cerrarPedido = useCallback(async (pedidoId: string) => {
+    // Optimistic: sacar de la lista inmediatamente
     setPedidos(prev => prev.filter(p => p.id !== pedidoId))
+    try {
+      await api.cerrarPedido(pedidoId)
+      fetchMesasSilent()
+    } catch (e) {
+      await refetchPedidos()
+    }
+  }, [refetchPedidos, fetchMesasSilent])
 
-  const getPedidosMesa = (mesaId: string) =>
-    pedidos.filter(p => p.mesaId === mesaId && p.estado !== "entregado")
+  const getPedidosMesa = useCallback((mesaId: string) =>
+    pedidos.filter(p => p.mesa.id === mesaId && p.estado !== "CERRADO"),
+  [pedidos])
 
   return (
-    <Ctx.Provider value={{ pedidos, crearPedido, avanzarEstado, cerrarPedido, getPedidosMesa }}>
+    <Ctx.Provider value={{
+      pedidos, mesas, catalogo, categorias,
+      loadingPedidos, loadingMesas, loadingCatalogo,
+      refreshing, error, lastUpdated,
+      refetchPedidos, refetchMesas,
+      crearPedido, avanzarEstado, cerrarPedido, getPedidosMesa,
+    }}>
       {children}
     </Ctx.Provider>
   )

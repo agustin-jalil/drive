@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Montserrat, Playfair_Display } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthStore } from "@/context/auth-store"
 import { CafeteriaStore } from "@/context/cafeteria-store"
 import "./globals.css"
 
@@ -16,10 +17,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className="dark">
+    <html lang="es" className="dark" suppressHydrationWarning>
       <body className={`${montserrat.variable} ${playfair.variable} font-sans antialiased`}>
-        <ThemeProvider defaultTheme="dark" storageKey="drive-theme">
-          <CafeteriaStore>{children}</CafeteriaStore>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="drive-theme">
+          <AuthStore>
+            <CafeteriaStore>
+              {children}
+            </CafeteriaStore>
+          </AuthStore>
         </ThemeProvider>
         <Analytics />
       </body>

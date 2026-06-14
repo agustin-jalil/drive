@@ -1,245 +1,254 @@
 "use client"
-
-import { useState, useEffect, Suspense } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useStore, CATEGORIAS, ITEMS_CATALOGO, MESAS_CONFIG } from "@/context/cafeteria-store"
-import { Card } from "@/components/ui/card"
+import { useState, useMemo } from "react"
+import { useStore } from "@/context/cafeteria-store"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Minus, Plus, ShoppingCart, Tag, Trash2 } from "lucide-react"
-import type { ItemPedido } from "@/types/cafeteria"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ShoppingCart, Plus, Minus, Trash2, SendHorizonal, ChevronDown, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import type { ItemCatalogo, Mesa } from "@/lib/api"
 
-const fmtPrecio = (n: number) =>
-  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n)
+type CarritoItem = { item: ItemCatalogo; cantidad: number }
 
-function CatalogoInner() {
-  const router = useRouter()
-  const params = useSearchParams()
-  const { crearPedido } = useStore()
+export function CatalogoCrearPedido() {
+  const { catalogo, categorias, mesas, loadingCatalogo, crearPedido } = useStore()
+  const [catActiva, setCatActiva] = useState<string | null>(null)
+  const [carrito,   setCarrito]   = useState<CarritoItem[]>([])
+  const [mesaId,    setMesaId]    = useState<string>("")
+  const [sending,   setSending]   = useState(false)
+  const [exito,     setExito]     = useState(false)
 
-  const [mesaId,    setMesaId]    = useState(params.get("mesa") ?? "")
-  const [catActiva, setCatActiva] = useState("all")
-  const [carrito,   setCarrito]   = useState<ItemPedido[]>([])
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const itemsFiltrados = useMemo(() =>
+    catActiva ? catalogo.filter(i => i.categoriaId === catActiva) : catalogo,
+  [catalogo, catActiva])
 
-  useEffect(() => { const m = params.get("mesa"); if (m) setMesaId(m) }, [params])
+  const mesasActivas = mesas.filter(m => m.activo)
 
-  const itemsFiltrados = catActiva === "all"
-    ? ITEMS_CATALOGO
-    : ITEMS_CATALOGO.filter(i => i.categoriaId === catActiva)
+  const totalCarrito = carrito.reduce((a, c) => a + c.item.precio * c.cantidad, 0)
+  const cantTotal    = carrito.reduce((a, c) => a + c.cantidad, 0)
 
-  const total      = carrito.reduce((a, i) => a + i.precio * i.cantidad, 0)
-  const totalItems = carrito.reduce((a, i) => a + i.cantidad, 0)
-  const getCant    = (id: string) => carrito.find(i => i.id === id)?.cantidad ?? 0
-
-  const modificar = (item: typeof ITEMS_CATALOGO[0], delta: number) => {
+  const agregarItem = (item: ItemCatalogo) => {
     setCarrito(prev => {
-      const existe = prev.find(i => i.id === item.id)
-      if (!existe) {
-        if (delta < 1) return prev
-        return [...prev, { id: item.id, nombre: item.nombre, emoji: item.emoji, precio: item.precio, cantidad: 1 }]
-      }
-      const nueva = existe.cantidad + delta
-      if (nueva <= 0) return prev.filter(i => i.id !== item.id)
-      return prev.map(i => i.id === item.id ? { ...i, cantidad: nueva } : i)
+      const ex = prev.find(c => c.item.id === item.id)
+      if (ex) return prev.map(c => c.item.id === item.id ? { ...c, cantidad: c.cantidad + 1 } : c)
+      return [...prev, { item, cantidad: 1 }]
     })
   }
 
-  const confirmar = () => {
-    if (!mesaId || carrito.length === 0) return
-    const mesa = MESAS_CONFIG.find(m => m.id === mesaId)!
-    crearPedido(mesaId, mesa.label, carrito)
-    router.push("/")
+  const cambiarCantidad = (itemId: string, delta: number) => {
+    setCarrito(prev =>
+      prev
+        .map(c => c.item.id === itemId ? { ...c, cantidad: c.cantidad + delta } : c)
+        .filter(c => c.cantidad > 0)
+    )
   }
 
-  // Carrito compartido (usado en sidebar desktop y sheet mobile)
-  const CarritoContent = () => (
-    <div className="flex flex-col h-full">
-      {carrito.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 py-10 text-center">
-          <ShoppingCart className="w-10 h-10 text-muted-foreground/30" />
-          <p className="text-xs text-muted-foreground font-serif italic">Agregá ítems del catálogo</p>
-        </div>
-      ) : (
-        <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-1">
-          {carrito.map(it => (
-            <div key={it.id} className="flex items-center gap-2.5 p-2.5 bg-secondary/50 rounded-xl">
-              <span className="text-lg flex-shrink-0">{it.emoji}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-foreground truncate">{it.nombre}</p>
-                <p className="text-[10px] text-muted-foreground">x{it.cantidad} · {fmtPrecio(it.precio * it.cantidad)}</p>
-              </div>
-              <button onClick={() => setCarrito(prev => prev.filter(i => i.id !== it.id))}
-                className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-destructive/20 transition-colors flex-shrink-0">
-                <Trash2 className="w-3 h-3 text-muted-foreground" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+  const enviarPedido = async () => {
+    if (!mesaId || carrito.length === 0) return
+    setSending(true)
+    try {
+      await crearPedido(mesaId, carrito.map(c => ({ itemId: c.item.id, cantidad: c.cantidad })))
+      setCarrito([])
+      setMesaId("")
+      setExito(true)
+      setTimeout(() => setExito(false), 3000)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSending(false)
+    }
+  }
 
-      {carrito.length > 0 && (
-        <div className="flex justify-between items-center py-3 border-t border-border/50 mb-3">
-          <span className="font-extrabold italic uppercase text-xs text-foreground">Total</span>
-          <span className="font-extrabold text-primary text-xl">{fmtPrecio(total)}</span>
-        </div>
-      )}
-
-      <Button onClick={() => { confirmar(); setSheetOpen(false) }}
-        disabled={carrito.length === 0 || !mesaId}
-        className="w-full h-11 font-bold uppercase tracking-wide text-xs bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30 disabled:opacity-40 transition-all rounded-xl">
-        <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Confirmar pedido
-      </Button>
-      {!mesaId && carrito.length > 0 && (
-        <p className="text-[10px] text-center text-muted-foreground mt-2 font-serif italic">
-          Seleccioná una mesa primero
-        </p>
-      )}
-    </div>
-  )
+  if (loadingCatalogo) return <CatalogoSkeleton />
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-5 relative">
-
-      {/* ── Catálogo ── */}
-      <div className="lg:col-span-2 space-y-4">
-        {/* Selector mesa */}
-        <Card className="p-3.5 lg:p-4 border-border/60">
-          <div className="flex items-center gap-3">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex-shrink-0 hidden sm:block">
-              Mesa / Barra
-            </p>
-            <Select value={mesaId} onValueChange={setMesaId}>
-              <SelectTrigger className="bg-secondary border-border text-foreground h-9 text-sm flex-1">
-                <SelectValue placeholder="¿Para qué mesa?" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase px-2 pt-1.5 pb-0.5">Mesas</p>
-                {MESAS_CONFIG.filter(m => m.tipo === "mesa").map(m => (
-                  <SelectItem key={m.id} value={m.id} className="text-foreground hover:bg-secondary">{m.label}</SelectItem>
-                ))}
-                <p className="text-[10px] font-bold text-muted-foreground uppercase px-2 pt-2 pb-0.5">Barra</p>
-                {MESAS_CONFIG.filter(m => m.tipo === "barra").map(m => (
-                  <SelectItem key={m.id} value={m.id} className="text-foreground hover:bg-secondary">{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </Card>
-
-        {/* Filtro categorías — scroll horizontal en mobile */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0 lg:flex-wrap">
-          <button onClick={() => setCatActiva("all")}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-              catActiva === "all" ? "bg-primary text-primary-foreground shadow-md" : "bg-secondary text-muted-foreground"
-            }`}>
-            <Tag className="w-3 h-3" /> Todo
+    <div className="flex flex-col xl:flex-row gap-4 xl:gap-6">
+      {/* Columna catálogo */}
+      <div className="flex-1 min-w-0 space-y-4">
+        {/* Filtro categorías */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => setCatActiva(null)}
+            className={cn(
+              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border",
+              !catActiva
+                ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+                : "bg-card border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            )}
+          >
+            Todos
           </button>
-          {CATEGORIAS.map(c => (
-            <button key={c.id} onClick={() => setCatActiva(c.id)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                catActiva === c.id ? "bg-primary text-primary-foreground shadow-md" : "bg-secondary text-muted-foreground"
-              }`}>
-              {c.emoji} {c.nombre}
+          {categorias.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setCatActiva(cat.id === catActiva ? null : cat.id)}
+              className={cn(
+                "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border",
+                catActiva === cat.id
+                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+                  : "bg-card border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              )}
+            >
+              {cat.emoji && <span>{cat.emoji}</span>}
+              {cat.nombre}
             </button>
           ))}
         </div>
 
-        {/* Grid ítems — 2 cols mobile, 3 cols desktop */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 lg:gap-3">
+        {/* Grid items */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
           {itemsFiltrados.map(item => {
-            const cant = getCant(item.id)
+            const enCarrito = carrito.find(c => c.item.id === item.id)
             return (
-              <Card key={item.id}
-                className={`p-3 lg:p-3.5 border-2 transition-all duration-150 ${
-                  cant > 0 ? "border-primary/60 bg-primary/5 shadow-md shadow-primary/10" : "border-border/50 active:scale-95"
-                }`}>
-                <div className="flex items-start gap-2 mb-3">
-                  <span className="text-xl lg:text-2xl">{item.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs lg:text-sm font-semibold text-foreground leading-tight">{item.nombre}</p>
-                    <p className="text-sm lg:text-sm font-extrabold text-primary mt-0.5">{fmtPrecio(item.precio)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <button onClick={() => modificar(item, -1)}
-                    className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center active:bg-primary/20 transition-colors">
-                    <Minus className="w-3.5 h-3.5 text-foreground" />
-                  </button>
-                  <span className={`text-base font-extrabold w-6 text-center ${cant > 0 ? "text-primary" : "text-muted-foreground"}`}>
-                    {cant}
+              <button
+                key={item.id}
+                onClick={() => agregarItem(item)}
+                className={cn(
+                  "relative rounded-xl border p-3 text-left transition-all duration-200 active:scale-95",
+                  enCarrito
+                    ? "border-primary/60 bg-primary/8 shadow-md shadow-primary/15"
+                    : "border-border/50 bg-card hover:border-primary/40 hover:bg-secondary/50"
+                )}
+              >
+                {enCarrito && (
+                  <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                    {enCarrito.cantidad}
                   </span>
-                  <button onClick={() => modificar(item, 1)}
-                    className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center active:bg-primary/80 transition-colors">
-                    <Plus className="w-3.5 h-3.5 text-primary-foreground" />
-                  </button>
-                </div>
-              </Card>
+                )}
+                <div className="text-2xl mb-2">{item.emoji ?? "🍽️"}</div>
+                <p className="text-xs font-semibold text-foreground leading-tight line-clamp-2 mb-1.5">
+                  {item.nombre}
+                </p>
+                <p className="text-xs font-bold text-primary">
+                  ${item.precio.toLocaleString("es-AR")}
+                </p>
+              </button>
             )
           })}
         </div>
-
-        {/* Espacio para el FAB en mobile */}
-        <div className="h-20 lg:hidden" />
       </div>
 
-      {/* ── DESKTOP: Carrito sidebar sticky ── */}
-      <div className="hidden lg:block lg:sticky lg:top-6 self-start">
-        <Card className="p-4 border-border/60 flex flex-col" style={{ maxHeight: "calc(100vh - 120px)" }}>
-          <div className="flex items-center gap-2 mb-4 flex-shrink-0">
-            <ShoppingCart className="w-4 h-4 text-primary" />
-            <h2 className="font-extrabold italic uppercase tracking-wide text-foreground text-sm">Pedido</h2>
-            {totalItems > 0 && (
-              <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                {totalItems}
-              </span>
+      {/* Panel carrito */}
+      <div className="xl:w-80 xl:flex-shrink-0">
+        <Card className="border-border/50 overflow-hidden sticky top-[4.5rem]">
+          <div className="p-4 border-b border-border/50 bg-secondary/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4 text-primary" />
+                <span className="font-semibold text-sm text-foreground">Pedido</span>
+              </div>
+              {cantTotal > 0 && (
+                <Badge className="bg-primary/15 text-primary border-primary/30 text-xs border rounded-full px-2">
+                  {cantTotal} ítem{cantTotal !== 1 ? "s" : ""}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {/* Selector mesa */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mesa / Barra</label>
+              <div className="relative">
+                <select
+                  value={mesaId}
+                  onChange={e => setMesaId(e.target.value)}
+                  className="w-full h-10 rounded-lg bg-secondary border border-border text-sm text-foreground px-3 pr-8 appearance-none focus:outline-none focus:border-primary transition-colors"
+                >
+                  <option value="">Seleccioná una mesa...</option>
+                  <optgroup label="Mesas">
+                    {mesasActivas.filter(m => m.tipo === "MESA").map(m => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Barra">
+                    {mesasActivas.filter(m => m.tipo === "BARRA").map(m => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </optgroup>
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Items carrito */}
+            {carrito.length === 0 ? (
+              <div className="py-8 text-center">
+                <ShoppingCart className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Tocá un ítem del catálogo para agregarlo</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {carrito.map(({ item, cantidad }) => (
+                  <div key={item.id} className="flex items-center gap-2 rounded-lg bg-secondary/50 p-2">
+                    <span className="text-lg flex-shrink-0">{item.emoji ?? "🍽️"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{item.nombre}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        ${(item.precio * cantidad).toLocaleString("es-AR")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => cambiarCantidad(item.id, -1)}
+                        className="w-6 h-6 rounded-md bg-secondary border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/40 transition-colors"
+                      >
+                        {cantidad === 1 ? <Trash2 className="w-3 h-3 text-destructive" /> : <Minus className="w-3 h-3" />}
+                      </button>
+                      <span className="text-xs font-bold text-foreground w-4 text-center">{cantidad}</span>
+                      <button
+                        onClick={() => cambiarCantidad(item.id, 1)}
+                        className="w-6 h-6 rounded-md bg-secondary border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Total + enviar */}
+            {carrito.length > 0 && (
+              <>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <span className="text-sm font-semibold text-muted-foreground">Total</span>
+                  <span className="text-lg font-bold text-foreground">
+                    ${totalCarrito.toLocaleString("es-AR")}
+                  </span>
+                </div>
+                <Button
+                  onClick={enviarPedido}
+                  disabled={!mesaId || sending}
+                  className="w-full bg-primary hover:bg-primary/90 font-semibold gap-2 shadow-lg shadow-primary/25"
+                >
+                  {sending ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
+                  ) : exito ? (
+                    "✅ ¡Pedido enviado!"
+                  ) : (
+                    <><SendHorizonal className="w-4 h-4" /> Enviar pedido</>
+                  )}
+                </Button>
+              </>
             )}
           </div>
-          <CarritoContent />
         </Card>
       </div>
-
-      {/* ── MOBILE: FAB flotante + Sheet ── */}
-      {carrito.length > 0 && (
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger asChild>
-            <button
-              className="lg:hidden fixed bottom-20 right-4 z-50 flex items-center gap-2.5 bg-primary text-primary-foreground px-4 py-3 rounded-2xl shadow-2xl shadow-primary/40 active:scale-95 transition-transform"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              <span className="font-bold text-sm">{fmtPrecio(total)}</span>
-              <span className="bg-primary-foreground/20 text-primary-foreground text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center">
-                {totalItems}
-              </span>
-            </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="bg-card border-border rounded-t-2xl h-[75vh] flex flex-col">
-            <SheetHeader className="flex-shrink-0 pb-3 border-b border-border/50">
-              <SheetTitle className="font-extrabold italic uppercase tracking-wide text-foreground text-left flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4 text-primary" />
-                Tu pedido
-                <span className="text-primary font-extrabold">{fmtPrecio(total)}</span>
-              </SheetTitle>
-            </SheetHeader>
-            <div className="flex-1 overflow-hidden flex flex-col pt-3">
-              <CarritoContent />
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
     </div>
   )
 }
 
-export function CatalogoCrearPedido() {
+function CatalogoSkeleton() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-40">
-        <p className="text-muted-foreground text-sm font-serif italic">Cargando catálogo...</p>
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        {[1,2,3,4].map(i => <Skeleton key={i} className="h-8 w-20 rounded-full" />)}
       </div>
-    }>
-      <CatalogoInner />
-    </Suspense>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+        {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+      </div>
+    </div>
   )
 }

@@ -42,33 +42,22 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
-app/analytics/page.tsx
-app/calendar/page.tsx
+app/catalogo/page.tsx
 app/globals.css
-app/help/page.tsx
 app/layout.tsx
+app/login/page.tsx
 app/logout/page.tsx
+app/mesas/page.tsx
 app/page.tsx
-app/settings/page.tsx
-app/tasks/page.tsx
-app/team/page.tsx
-components/analytics/analytics-content.tsx
-components/calendar/calendar-content.tsx
+components/auth/auth-guard.tsx
+components/auth/login-form.tsx
+components/cafeteria/catalogo-crear-pedido.tsx
+components/cafeteria/mesas-content.tsx
+components/cafeteria/pedidos-view.tsx
 components/dashboard/header.tsx
-components/dashboard/mobile-app-card.tsx
 components/dashboard/mobile-nav.tsx
-components/dashboard/project-analytics.tsx
-components/dashboard/project-list.tsx
-components/dashboard/project-progress.tsx
-components/dashboard/reminders.tsx
 components/dashboard/sidebar.tsx
-components/dashboard/stats-cards.tsx
-components/dashboard/team-collaboration.tsx
-components/dashboard/time-tracker.tsx
-components/help/help-content.tsx
 components/settings/settings-content.tsx
-components/tasks/tasks-content.tsx
-components/team/team-content.tsx
 components/theme-provider.tsx
 components/ui/accordion.tsx
 components/ui/alert-dialog.tsx
@@ -127,933 +116,330 @@ components/ui/toggle.tsx
 components/ui/tooltip.tsx
 components/ui/use-mobile.tsx
 components/ui/use-toast.ts
+context/auth-store.tsx
+context/cafeteria-store.tsx
 hooks/use-mobile.ts
+hooks/use-pedidos.ts
 hooks/use-toast.ts
 next.config.mjs
 package.json
 styles/globals.css
 tsconfig.json
+types/cafeteria.ts
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
 
-<file path="app/analytics/page.tsx">
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
-import { AnalyticsContent } from "@/components/analytics/analytics-content"
+<file path="app/login/page.tsx">
+import { LoginForm } from "@/components/auth/login-form"
+
+export default function LoginPage() {
+  return <LoginForm />
+}
+</file>
+
+<file path="components/auth/auth-guard.tsx">
+"use client"
+import { useAuth } from "@/context/auth-store"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import { Loader2 } from "lucide-react"
+
+export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace("/login")
+    }
+  }, [loading, isAuthenticated, router])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) return null
+
+  return <>{children}</>
+}
+</file>
+
+<file path="components/auth/login-form.tsx">
+"use client"
+import { useState } from "react"
+import { useAuth } from "@/context/auth-store"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card } from "@/components/ui/card"
+import { Coffeee, Loader2, Eye, EyeOff } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-export default function AnalyticsPage() {
+export function LoginForm() {
+  const { login } = useAuth()
+  const [email,    setEmail]    = useState("")
+  const [password, setPassword] = useState("")
+  const [showPwd,  setShowPwd]  = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      await login(email, password)
+    } catch (err: any) {
+      setError(err.message ?? "Error al iniciar sesión")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-xl shadow-primary/30 mb-4">
+            <Coffeee className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <h1 className="font-extrabold italic tracking-wider uppercase text-foreground text-3xl leading-none">DRIVE</h1>
+          <p className="font-serif italic text-primary tracking-wide text-sm mt-1">Café & Lubricentro</p>
+        </div>
 
-      <main className="flex-1 p-4 lg:p-6 lg:ml-64">
-        <Header
-          title="Analytics"
-          description="Track your performance and productivity metrics."
-          actions={
+        <Card className="p-6 border-border/50 shadow-2xl animate-fade-in">
+          <h2 className="text-lg font-bold text-foreground mb-1">Bienvenido</h2>
+          <p className="text-sm text-muted-foreground mb-5">Ingresá tus credenciales para continuar</p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="usuario@drive.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="h-11"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-sm font-medium">Contraseña</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPwd ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="h-11 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+
             <Button
-              variant="outline"
-              className="w-full sm:w-auto h-9 text-sm transition-all duration-300 hover:shadow-md hover:scale-105 bg-transparent"
+              type="submit"
+              disabled={loading}
+              className="w-full h-11 bg-primary hover:bg-primary/90 font-semibold shadow-lg shadow-primary/25"
             >
-              Export Report
+              {loading ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Ingresando...</>
+              ) : "Ingresar"}
             </Button>
-          }
-        />
+          </form>
+        </Card>
 
-        <div className="mt-6">
-          <AnalyticsContent />
-        </div>
-      </main>
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          Sistema DRIVE · Cafetería v1.0
+        </p>
+      </div>
     </div>
   )
 }
 </file>
 
-<file path="app/calendar/page.tsx">
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
-import { CalendarContent } from "@/components/calendar/calendar-content"
-import { Button } from "@/components/ui/button"
+<file path="context/auth-store.tsx">
+"use client"
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { api, type Usuario } from "@/lib/api"
+import { useRouter } from "next/navigation"
 
-export default function CalendarPage() {
+type AuthCtx = {
+  usuario: Usuario | null
+  token: string | null
+  loading: boolean
+  login: (email: string, password: string) => Promise<void>
+  logout: () => void
+  isAuthenticated: boolean
+}
+
+const Ctx = createContext<AuthCtx | null>(null)
+
+export function AuthStore({ children }: { children: React.ReactNode }) {
+  const [usuario, setUsuario] = useState<Usuario | null>(null)
+  const [token, setToken] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  // Restore session on mount
+  useEffect(() => {
+    const t = localStorage.getItem("drive_token")
+    if (t) {
+      setToken(t)
+      api.me()
+        .then(setUsuario)
+        .catch(() => {
+          localStorage.removeItem("drive_token")
+          setToken(null)
+        })
+        .finally(() => setLoading(false))
+    } else {
+      setLoading(false)
+    }
+  }, [])
+
+  const login = useCallback(async (email: string, password: string) => {
+    const data = await api.login(email, password)
+    localStorage.setItem("drive_token", data.access_token)
+    setToken(data.access_token)
+    setUsuario(data.usuario)
+    router.push("/")
+  }, [router])
+
+  const logout = useCallback(() => {
+    localStorage.removeItem("drive_token")
+    setToken(null)
+    setUsuario(null)
+    router.push("/login")
+  }, [router])
+
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-
-      <main className="flex-1 p-4 lg:p-6 lg:ml-64">
-        <Header
-          title="Calendar"
-          description="Schedule and track your events and meetings."
-          actions={
-            <Button className="w-full sm:w-auto h-9 text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:shadow-lg hover:shadow-primary/30 hover:scale-105">
-              + Add Event
-            </Button>
-          }
-        />
-
-        <div className="mt-6">
-          <CalendarContent />
-        </div>
-      </main>
-    </div>
+    <Ctx.Provider value={{ usuario, token, loading, login, logout, isAuthenticated: !!token }}>
+      {children}
+    </Ctx.Provider>
   )
+}
+
+export function useAuth() {
+  const c = useContext(Ctx)
+  if (!c) throw new Error("useAuth fuera de AuthStore")
+  return c
 }
 </file>
 
-<file path="app/globals.css">
-@import "tailwindcss";
-@import "tw-animate-css";
+<file path="hooks/use-pedidos.ts">
+import { useStore } from "@/context/cafeteria-store"
+import type { Pedido } from "@/lib/api"
 
-@custom-variant dark (&:is(.dark *));
-
-:root {
-  /* Updated theme colors to match the green and white dashboard design */
-  --background: oklch(0.98 0.005 120);
-  --foreground: oklch(0.25 0.02 120);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.25 0.02 120);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 120);
-  --primary: oklch(0.42 0.15 155);
-  --primary-foreground: oklch(0.98 0.01 155);
-  --secondary: oklch(0.96 0.01 120);
-  --secondary-foreground: oklch(0.25 0.02 120);
-  --muted: oklch(0.96 0.01 120);
-  --muted-foreground: oklch(0.55 0.02 120);
-  --accent: oklch(0.55 0.18 155);
-  --accent-foreground: oklch(0.98 0.01 155);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.98 0.01 0);
-  --border: oklch(0.92 0.01 120);
-  --input: oklch(0.92 0.01 120);
-  --ring: oklch(0.42 0.15 155);
-  --chart-1: oklch(0.42 0.15 155);
-  --chart-2: oklch(0.55 0.18 155);
-  --chart-3: oklch(0.65 0.12 155);
-  --chart-4: oklch(0.75 0.08 155);
-  --chart-5: oklch(0.85 0.04 155);
-  --radius: 1rem;
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.25 0.02 120);
-  --sidebar-primary: oklch(0.42 0.15 155);
-  --sidebar-primary-foreground: oklch(0.98 0.01 155);
-  --sidebar-accent: oklch(0.96 0.01 120);
-  --sidebar-accent-foreground: oklch(0.25 0.02 120);
-  --sidebar-border: oklch(0.92 0.01 120);
-  --sidebar-ring: oklch(0.42 0.15 155);
+const ORDEN_ESTADO: Record<string, number> = {
+  PENDIENTE: 0, EN_PREPARACION: 1, LISTO: 2, ENTREGADO: 3, CERRADO: 4,
 }
 
-.dark {
-  /* Updated dark mode colors to match green theme */
-  --background: oklch(0.12 0.01 155);
-  --foreground: oklch(0.98 0.005 155);
-  --card: oklch(0.15 0.01 155);
-  --card-foreground: oklch(0.98 0.005 155);
-  --popover: oklch(0.15 0.01 155);
-  --popover-foreground: oklch(0.98 0.005 155);
-  --primary: oklch(0.55 0.18 155);
-  --primary-foreground: oklch(0.98 0.01 155);
-  --secondary: oklch(0.2 0.02 155);
-  --secondary-foreground: oklch(0.98 0.005 155);
-  --muted: oklch(0.2 0.02 155);
-  --muted-foreground: oklch(0.65 0.02 155);
-  --accent: oklch(0.55 0.18 155);
-  --accent-foreground: oklch(0.98 0.01 155);
-  --destructive: oklch(0.5 0.2 25);
-  --destructive-foreground: oklch(0.98 0.01 0);
-  --border: oklch(0.25 0.02 155);
-  --input: oklch(0.25 0.02 155);
-  --ring: oklch(0.55 0.18 155);
-  --chart-1: oklch(0.42 0.15 155);
-  --chart-2: oklch(0.55 0.18 155);
-  --chart-3: oklch(0.65 0.12 155);
-  --chart-4: oklch(0.75 0.08 155);
-  --chart-5: oklch(0.85 0.04 155);
-  --sidebar: oklch(0.15 0.01 155);
-  --sidebar-foreground: oklch(0.98 0.005 155);
-  --sidebar-primary: oklch(0.55 0.18 155);
-  --sidebar-primary-foreground: oklch(0.98 0.01 155);
-  --sidebar-accent: oklch(0.2 0.02 155);
-  --sidebar-accent-foreground: oklch(0.98 0.005 155);
-  --sidebar-border: oklch(0.25 0.02 155);
-  --sidebar-ring: oklch(0.55 0.18 155);
+export function usePedidosActivos() {
+  const { pedidos, loadingPedidos, refreshing, lastUpdated, refetchPedidos, avanzarEstado, cerrarPedido } = useStore()
+  const activos = pedidos
+    .filter(p => p.estado !== "CERRADO")
+    .sort((a, b) => ORDEN_ESTADO[a.estado] - ORDEN_ESTADO[b.estado])
+  return { pedidos: activos, loading: loadingPedidos, refreshing, lastUpdated, refetchPedidos, avanzarEstado, cerrarPedido }
 }
 
-@theme inline {
-  /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
+export function useEstadoColor(estado: Pedido["estado"]) {
+  const map: Record<string, string> = {
+    PENDIENTE:      "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+    EN_PREPARACION: "bg-primary/15 text-primary border-primary/30",
+    LISTO:          "bg-green-500/15 text-green-400 border-green-500/30",
+    ENTREGADO:      "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    CERRADO:        "bg-muted text-muted-foreground border-border",
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+  return map[estado] ?? map.PENDIENTE
 }
 
-/* Custom animations for smooth card interactions */
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0px);
+export function useEstadoLabel(estado: string) {
+  const map: Record<string, string> = {
+    PENDIENTE:      "Pendiente",
+    EN_PREPARACION: "En preparación",
+    LISTO:          "¡Listo!",
+    ENTREGADO:      "Entregado",
+    CERRADO:        "Cerrado",
   }
-  50% {
-    transform: translateY(-5px);
-  }
+  return map[estado] ?? estado
 }
 
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
+export function useAccionLabel(estado: string) {
+  const map: Record<string, string> = {
+    PENDIENTE:      "Preparar",
+    EN_PREPARACION: "Marcar listo",
+    LISTO:          "Entregar",
+    ENTREGADO:      "Cerrar",
+    CERRADO:        "",
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Added barSlideUp animation for modern analytics chart */
-@keyframes barSlideUp {
-  from {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-  to {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-}
-
-@keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 rgba(66, 153, 225, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(66, 153, 225, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(66, 153, 225, 0);
-  }
-}
-
-/* Added shimmer and fade-in animations for chart interactions */
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-slide-in-up {
-  animation: slideInUp 0.5s ease-out forwards;
-}
-
-/* Added utility classes for new animations */
-.animate-shimmer {
-  animation: shimmer 1.5s ease-in-out infinite;
-}
-
-.animate-fade-in {
-  animation: fade-in 0.2s ease-out forwards;
-}
-</file>
-
-<file path="app/help/page.tsx">
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
-import { HelpContent } from "@/components/help/help-content"
-
-export default function HelpPage() {
-  return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-
-      <main className="flex-1 p-4 lg:p-6 lg:ml-64">
-        <Header title="Help & Support" description="Get help with using Tasko and find answers to common questions." />
-
-        <div className="mt-6">
-          <HelpContent />
-        </div>
-      </main>
-    </div>
-  )
-}
-</file>
-
-<file path="app/layout.tsx">
-import type React from "react"
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
-import { ThemeProvider } from "@/components/theme-provider"
-import "./globals.css"
-
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
-
-export const metadata: Metadata = {
-  title: "Donezo - Project Management Dashboard",
-  description: "Plan, prioritize, and accomplish your tasks with ease",
-  generator: "v0.app",
-  icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
-  },
-}
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
-  return (
-    <html lang="en">
-      <body className={`font-sans antialiased`}>
-        <ThemeProvider defaultTheme="light" storageKey="tasko-theme">
-          {children}
-        </ThemeProvider>
-        <Analytics />
-      </body>
-    </html>
-  )
+  return map[estado] ?? ""
 }
 </file>
 
 <file path="app/logout/page.tsx">
 "use client"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/auth-store"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LogOut } from "lucide-react"
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
 
 export default function LogoutPage() {
   const router = useRouter()
+  const { logout } = useAuth()
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-
-      <main className="flex-1 p-4 lg:p-6 lg:ml-64">
-        <Header />
-
-        <div className="flex items-center justify-center min-h-[calc(100vh-100px)]">
-          <Card className="p-8 max-w-md w-full text-center space-y-6 animate-fade-in">
-            <div className="flex justify-center">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <LogOut className="w-8 h-8 text-primary" />
-              </div>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground mb-2">Logout</h1>
-              <p className="text-muted-foreground">Are you sure you want to logout?</p>
-            </div>
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 bg-transparent" onClick={() => router.back()}>
-                Cancel
-              </Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={() => router.push("/")}>
-                Logout
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </main>
-    </div>
-  )
-}
-</file>
-
-<file path="app/page.tsx">
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
-import { StatsCards } from "@/components/dashboard/stats-cards"
-import { ProjectAnalytics } from "@/components/dashboard/project-analytics"
-import { Reminders } from "@/components/dashboard/reminders"
-import { ProjectList } from "@/components/dashboard/project-list"
-import { TeamCollaboration } from "@/components/dashboard/team-collaboration"
-import { ProjectProgress } from "@/components/dashboard/project-progress"
-import { MobileAppCard } from "@/components/dashboard/mobile-app-card"
-import { TimeTracker } from "@/components/dashboard/time-tracker"
-import { Button } from "@/components/ui/button"
-
-export default function DashboardPage() {
-  return (
-    <div className="flex min-h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
-
-      <main className="flex-1 p-3 md:p-4 lg:p-5 lg:ml-64">
-        <Header
-          title="Dashboard"
-          description="Plan, prioritize, and accomplish your tasks with ease."
-          actions={
-            <>
-              <Button className="w-full sm:w-auto h-9 text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:shadow-lg hover:shadow-primary/30 hover:scale-105">
-                + Add Project
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto h-9 text-sm transition-all duration-300 hover:shadow-md hover:scale-105 bg-transparent"
-              >
-                Import Data
-              </Button>
-            </>
-          }
-        />
-
-        <div className="mt-4 md:mt-5 space-y-3 md:space-y-4">
-          <StatsCards />
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
-            <div className="lg:col-span-2 space-y-3 md:space-y-4">
-              <ProjectAnalytics />
-              <TeamCollaboration />
-            </div>
-
-            <div className="space-y-3 md:space-y-4">
-              <Reminders />
-              <ProjectProgress />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-            <ProjectList />
-            <MobileAppCard />
-            <TimeTracker />
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="p-8 max-w-md w-full text-center space-y-6 animate-fade-in">
+        <div className="flex justify-center">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <LogOut className="w-8 h-8 text-primary" />
           </div>
         </div>
-      </main>
-    </div>
-  )
-}
-</file>
-
-<file path="app/settings/page.tsx">
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
-import { SettingsContent } from "@/components/settings/settings-content"
-
-export default function SettingsPage() {
-  return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-
-      <main className="flex-1 p-4 lg:p-6 lg:ml-64">
-        <Header title="Settings" description="Manage your account preferences and application settings." />
-
-        <div className="mt-6">
-          <SettingsContent />
+        <div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Cerrar sesión</h1>
+          <p className="text-muted-foreground">¿Seguro que querés salir?</p>
         </div>
-      </main>
-    </div>
-  )
-}
-</file>
-
-<file path="app/tasks/page.tsx">
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
-import { TasksContent } from "@/components/tasks/tasks-content"
-import { Button } from "@/components/ui/button"
-
-export default function TasksPage() {
-  return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-
-      <main className="flex-1 p-4 lg:p-6 lg:ml-64">
-        <Header
-          title="Tasks"
-          description="Manage and organize your tasks efficiently."
-          actions={
-            <Button className="w-full sm:w-auto h-9 text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:shadow-lg hover:shadow-primary/30 hover:scale-105">
-              + Add Task
-            </Button>
-          }
-        />
-
-        <div className="mt-6">
-          <TasksContent />
-        </div>
-      </main>
-    </div>
-  )
-}
-</file>
-
-<file path="app/team/page.tsx">
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
-import { TeamContent } from "@/components/team/team-content"
-import { Button } from "@/components/ui/button"
-
-export default function TeamPage() {
-  return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-
-      <main className="flex-1 p-4 lg:p-6 lg:ml-64">
-        <Header
-          title="Team"
-          description="Manage your team members and their roles."
-          actions={
-            <Button className="w-full sm:w-auto h-9 text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:shadow-lg hover:shadow-primary/30 hover:scale-105">
-              + Add Member
-            </Button>
-          }
-        />
-
-        <div className="mt-6">
-          <TeamContent />
-        </div>
-      </main>
-    </div>
-  )
-}
-</file>
-
-<file path="components/analytics/analytics-content.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { TrendingUp, TrendingDown, Users, CheckCircle, Clock, Target, ArrowUpRight } from "lucide-react"
-import { useState } from "react"
-
-const stats = [
-  { title: "Total Tasks Completed", value: "247", change: "+12%", trend: "up", icon: CheckCircle },
-  { title: "Active Projects", value: "12", change: "+3", trend: "up", icon: Target },
-  { title: "Team Members", value: "24", change: "-2", trend: "down", icon: Users },
-  { title: "Avg. Completion Time", value: "2.3", subtitle: "days", change: "-0.5", trend: "up", icon: Clock },
-]
-
-const monthlyData = [
-  { month: "Jan", tasks: 45, projects: 8 },
-  { month: "Feb", tasks: 52, projects: 9 },
-  { month: "Mar", tasks: 48, projects: 10 },
-  { month: "Apr", tasks: 61, projects: 11 },
-  { month: "May", tasks: 55, projects: 12 },
-  { month: "Jun", tasks: 67, projects: 12 },
-]
-
-export function AnalyticsContent() {
-  const [hoveredCard, setHoveredCard] = useState<number | null>(null)
-  const maxTasks = Math.max(...monthlyData.map((d) => d.tasks))
-
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map((stat, index) => (
-          <Card
-            key={stat.title}
-            onMouseEnter={() => setHoveredCard(index)}
-            onMouseLeave={() => setHoveredCard(null)}
-            style={{ animationDelay: `${index * 100}ms` }}
-            className={`bg-card text-foreground p-4 transition-all duration-500 ease-out animate-slide-in-up cursor-pointer ${
-              hoveredCard === index ? "scale-105 shadow-2xl" : "shadow-lg"
-            }`}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-full">
-                  <stat.icon className="w-4 h-4 text-primary" />
-                </div>
-                <h3 className="text-xs font-medium opacity-90">{stat.title}</h3>
-              </div>
-              <div
-                className={`w-6 h-6 rounded-full bg-primary flex items-center justify-center transition-transform duration-300 ${
-                  hoveredCard === index ? "rotate-45" : ""
-                }`}
-              >
-                <ArrowUpRight className="w-3 h-3 text-primary-foreground" />
-              </div>
-            </div>
-            <p className="text-3xl font-bold mb-2">
-              {stat.value}
-              {stat.subtitle && <span className="text-base font-normal ml-1">{stat.subtitle}</span>}
-            </p>
-            <div className="flex items-center gap-1.5 text-xs opacity-80">
-              {stat.trend === "up" ? (
-                <TrendingUp className="w-3 h-3 text-green-600" />
-              ) : (
-                <TrendingDown className="w-3 h-3 text-red-600" />
-              )}
-              <span className={stat.trend === "up" ? "text-green-600" : "text-red-600"}>{stat.change}</span>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h3 className="font-semibold text-lg mb-6">Monthly Task Completion</h3>
-          <div className="space-y-4">
-            {monthlyData.map((data, index) => (
-              <div
-                key={data.month}
-                className="space-y-2 animate-slide-in"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{data.month}</span>
-                  <span className="text-muted-foreground">{data.tasks} tasks</span>
-                </div>
-                <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all duration-1000 ease-out"
-                    style={{ width: `${(data.tasks / maxTasks) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h3 className="font-semibold text-lg mb-6">Project Distribution</h3>
-          <div className="space-y-4">
-            {[
-              { name: "In Progress", count: 8, color: "bg-blue-500" },
-              { name: "Completed", count: 15, color: "bg-green-600" },
-              { name: "Pending", count: 5, color: "bg-amber-500" },
-              { name: "On Hold", count: 2, color: "bg-gray-500" },
-            ].map((item, index) => (
-              <div
-                key={item.name}
-                className="flex items-center justify-between p-3 rounded-lg border border-border hover:shadow-md transition-all duration-300 animate-slide-in"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${item.color}`} />
-                  <span className="font-medium">{item.name}</span>
-                </div>
-                <span className="text-2xl font-bold text-foreground">{item.count}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    </div>
-  )
-}
-</file>
-
-<file path="components/calendar/calendar-content.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ChevronLeft, ChevronRight, Video } from "lucide-react"
-import { useState } from "react"
-
-const events = [
-  { id: 1, title: "Team Standup", time: "09:00 AM", duration: "30 min", type: "meeting", color: "bg-blue-500" },
-  { id: 2, title: "Design Review", time: "11:00 AM", duration: "1 hour", type: "review", color: "bg-purple-500" },
-  {
-    id: 3,
-    title: "Client Presentation",
-    time: "02:00 PM",
-    duration: "2 hours",
-    type: "presentation",
-    color: "bg-green-600",
-  },
-  { id: 4, title: "Code Review Session", time: "04:30 PM", duration: "45 min", type: "meeting", color: "bg-amber-500" },
-]
-
-const daysInMonth = Array.from({ length: 30 }, (_, i) => i + 1)
-const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-
-export function CalendarContent() {
-  const [currentDate] = useState(new Date())
-  const today = 17
-
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon">
-            <ChevronLeft className="w-4 h-4" />
+        <div className="flex gap-3">
+          <Button variant="outline" className="flex-1 bg-transparent" onClick={() => router.back()}>
+            Cancelar
           </Button>
-          <span className="font-semibold min-w-[120px] text-center">November 2024</span>
-          <Button variant="outline" size="icon">
-            <ChevronRight className="w-4 h-4" />
+          <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={logout}>
+            Salir
           </Button>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 p-6">
-          <div className="grid grid-cols-7 gap-2 mb-4">
-            {weekDays.map((day) => (
-              <div key={day} className="text-center text-sm font-semibold text-muted-foreground py-2">
-                {day}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-2">
-            {daysInMonth.map((day) => (
-              <button
-                key={day}
-                className={`
-                  aspect-square rounded-lg flex items-center justify-center text-sm font-medium
-                  transition-all duration-300 hover:scale-110
-                  ${
-                    day === today
-                      ? "bg-primary text-primary-foreground shadow-lg"
-                      : "hover:bg-secondary text-foreground"
-                  }
-                  ${day < today ? "opacity-40" : ""}
-                `}
-              >
-                {day}
-              </button>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h3 className="font-semibold text-lg mb-4">Today's Events</h3>
-          <div className="space-y-3">
-            {events.map((event, index) => (
-              <div
-                key={event.id}
-                className="p-3 rounded-lg border border-border hover:shadow-md transition-all duration-300 cursor-pointer animate-slide-in"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`w-1 h-full rounded-full ${event.color}`} />
-                  <div className="flex-1 space-y-1">
-                    <h4 className="font-medium text-sm">{event.title}</h4>
-                    <p className="text-xs text-muted-foreground">{event.time}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {event.duration}
-                      </Badge>
-                      {event.type === "meeting" && <Video className="w-3 h-3 text-muted-foreground" />}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+      </Card>
     </div>
-  )
-}
-</file>
-
-<file path="components/dashboard/header.tsx">
-"use client"
-
-import { Search, Mail, Bell } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MobileNav } from "./mobile-nav"
-import type { ReactNode } from "react"
-
-interface HeaderProps {
-  title: string
-  description: string
-  actions?: ReactNode
-}
-
-export function Header({ title, description, actions }: HeaderProps) {
-  return (
-    <header className="space-y-3 md:space-y-4 animate-slide-in-up">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1">
-          <MobileNav />
-
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search task"
-              className="pl-9 pr-3 md:pr-16 h-9 text-sm bg-card border-border transition-all duration-300 focus:shadow-lg focus:shadow-primary/10"
-            />
-            <kbd className="hidden md:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground bg-muted rounded border border-border">
-              ⌘F
-            </kbd>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 md:gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative hover:bg-secondary transition-all duration-300 hover:scale-110 h-8 w-8"
-          >
-            <Mail className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative hover:bg-secondary transition-all duration-300 hover:scale-110 h-8 w-8"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
-          </Button>
-
-          <div className="flex items-center gap-2 pl-2 md:pl-3 border-l border-border">
-            <Avatar className="w-7 h-7 md:w-8 md:h-8 ring-2 ring-primary/20 transition-all duration-300 hover:ring-primary/40">
-              <AvatarImage src="/profile.jpg" alt="Jessin Sam" />
-              <AvatarFallback className="text-xs">JS</AvatarFallback>
-            </Avatar>
-            <div className="text-xs hidden sm:block">
-              <p className="font-semibold text-foreground">Jessin Sam</p>
-              <p className="text-muted-foreground text-[10px]">jessin@gmail.com</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground mb-1">{title}</h1>
-        <p className="text-xs md:text-sm text-muted-foreground">{description}</p>
-      </div>
-
-      {actions && <div className="flex flex-col sm:flex-row gap-2">{actions}</div>}
-    </header>
-  )
-}
-</file>
-
-<file path="components/dashboard/mobile-app-card.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Smartphone, Apple } from "lucide-react"
-
-export function MobileAppCard() {
-  return (
-    <Card
-      className="bg-foreground text-background p-4 transition-all duration-500 hover:shadow-2xl animate-slide-in-up overflow-hidden relative group"
-      style={{ animationDelay: "900ms" }}
-    >
-      <div className="absolute bottom-0 left-0 right-0 h-24 overflow-hidden">
-        <svg
-          className="absolute bottom-0 w-full"
-          viewBox="0 0 200 60"
-          preserveAspectRatio="none"
-          style={{ height: "100px" }}
-        >
-          <path
-            d="M0,30 Q25,15 50,30 T100,30 T150,30 T200,30 L200,60 L0,60 Z"
-            fill="oklch(0.42 0.15 155)"
-            opacity="0.3"
-          />
-          <path d="M0,40 Q25,25 50,40 T100,40 T150,40 T200,40 L200,60 L0,60 Z" fill="oklch(0.42 0.15 155)" />
-        </svg>
-      </div>
-
-      <div className="relative z-10">
-        <Smartphone className="w-6 h-6 mb-3" />
-        <h2 className="text-xl font-bold mb-1">Download our Mobile App</h2>
-        <p className="text-xs opacity-80 mb-4">Get easy in another way</p>
-
-        <div className="flex flex-col gap-2 mb-4">
-          <Button
-            variant="secondary"
-            className="w-full h-10 bg-background text-foreground hover:bg-background/90 transition-all duration-300 hover:scale-105 flex items-center justify-start gap-2 px-3"
-          >
-            <Apple className="w-5 h-5" />
-            <div className="flex flex-col items-start text-left">
-              <span className="text-[10px] leading-none">Download on the</span>
-              <span className="text-sm font-semibold leading-none">App Store</span>
-            </div>
-          </Button>
-
-          <Button
-            variant="secondary"
-            className="w-full h-10 bg-background text-foreground hover:bg-background/90 transition-all duration-300 hover:scale-105 flex items-center justify-start gap-2 px-3"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
-            </svg>
-            <div className="flex flex-col items-start text-left">
-              <span className="text-[10px] leading-none">Get it on</span>
-              <span className="text-sm font-semibold leading-none">Google Play</span>
-            </div>
-          </Button>
-        </div>
-      </div>
-    </Card>
   )
 }
 </file>
@@ -1079,756 +465,6 @@ export function MobileNav() {
         <Sidebar />
       </SheetContent>
     </Sheet>
-  )
-}
-</file>
-
-<file path="components/dashboard/project-analytics.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { useState } from "react"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
-
-const chartData = [
-  { day: "S", value: 45, label: "Sunday" },
-  { day: "M", value: 75, label: "Monday" },
-  { day: "T", value: 74, label: "Tuesday" },
-  { day: "W", value: 92, label: "Wednesday" },
-  { day: "T", value: 35, label: "Thursday" },
-  { day: "F", value: 60, label: "Friday" },
-  { day: "S", value: 50, label: "Saturday" },
-]
-
-const barColors = ["#059669", "#047857", "#10b981", "#065f46", "#059669", "#047857", "#10b981"]
-
-export function ProjectAnalytics() {
-  const [hoveredBar, setHoveredBar] = useState<number | null>(null)
-  const maxValue = Math.max(...chartData.map((d) => d.value))
-  const average = Math.round(chartData.reduce((acc, d) => acc + d.value, 0) / chartData.length)
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-foreground text-background px-3 py-2 rounded-lg text-xs font-semibold shadow-lg">
-          <p className="font-bold">{payload[0].value}%</p>
-          <p className="text-[10px] opacity-80">{payload[0].payload.label}</p>
-        </div>
-      )
-    }
-    return null
-  }
-
-  return (
-    <Card
-      className="p-6 transition-all duration-500 hover:shadow-xl animate-slide-in-up bg-gradient-to-br from-background to-muted/20"
-      style={{ animationDelay: "400ms" }}
-    >
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-foreground">Project Analytics</h2>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
-          <span>Weekly Activity</span>
-        </div>
-      </div>
-
-      <div className="h-64 mb-4 relative">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" />
-                <stop offset="100%" stopColor="#047857" />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-muted/20" />
-            <XAxis
-              dataKey="day"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "currentColor", fontSize: 14 }}
-              className="text-muted-foreground"
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "currentColor", fontSize: 12 }}
-              className="text-muted-foreground"
-              ticks={[0, 25, 50, 75, 100]}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "transparent" }} />
-            <Bar
-              dataKey="value"
-              fill="url(#barGradient)"
-              radius={[12, 12, 12, 12]}
-              maxBarSize={60}
-              onMouseEnter={(data, index) => setHoveredBar(index)}
-              onMouseLeave={() => setHoveredBar(null)}
-            >
-              {chartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={barColors[index]}
-                  className="transition-all duration-300"
-                  style={{
-                    filter:
-                      hoveredBar === index ? "brightness(1.2) drop-shadow(0 4px 8px rgba(5, 150, 105, 0.4))" : "none",
-                    transformOrigin: "center bottom",
-                  }}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Summary stats */}
-      <div className="pt-4 border-t border-muted/50 flex items-center justify-between">
-        <div className="text-sm">
-          <span className="text-muted-foreground">Average: </span>
-          <span className="font-semibold text-foreground">{average}%</span>
-        </div>
-        <div className="text-sm">
-          <span className="text-muted-foreground">Peak: </span>
-          <span className="font-semibold text-emerald-600">{maxValue}%</span>
-        </div>
-      </div>
-    </Card>
-  )
-}
-</file>
-
-<file path="components/dashboard/project-list.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-
-const projects = [
-  { name: "Develop API Endpoints", date: "Nov 26, 2024", color: "bg-blue-500", icon: "⚡" },
-  { name: "Onboarding Flow", date: "Nov 28, 2024", color: "bg-cyan-500", icon: "🌊" },
-  { name: "Build Dashboard", date: "Nov 30, 2024", color: "bg-emerald-500", icon: "🎨" },
-  { name: "Optimize Page Load", date: "Dec 5, 2024", color: "bg-amber-500", icon: "⚡" },
-  { name: "Cross-Browser Testing", date: "Dec 6, 2024", color: "bg-purple-500", icon: "🔍" },
-]
-
-export function ProjectList() {
-  return (
-    <Card
-      className="p-6 transition-all duration-500 hover:shadow-xl animate-slide-in-up"
-      style={{ animationDelay: "700ms" }}
-    >
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-foreground">Project</h2>
-        <Button variant="outline" size="sm" className="transition-all duration-300 hover:scale-105 bg-transparent">
-          <Plus className="w-4 h-4 mr-1" />
-          New
-        </Button>
-      </div>
-      <div className="space-y-3">
-        {projects.map((project, index) => (
-          <div
-            key={project.name}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary transition-all duration-300 cursor-pointer group"
-            style={{ animationDelay: `${800 + index * 100}ms` }}
-          >
-            <div
-              className={`${project.color} w-10 h-10 rounded-lg flex items-center justify-center text-xl transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12`}
-            >
-              {project.icon}
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-foreground text-sm">{project.name}</p>
-              <p className="text-xs text-muted-foreground">Due date: {project.date}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-}
-</file>
-
-<file path="components/dashboard/project-progress.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { useEffect, useState } from "react"
-
-export function ProjectProgress() {
-  const [progress, setProgress] = useState(0)
-  const targetProgress = 41
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (progress < targetProgress) {
-        setProgress((prev) => Math.min(prev + 1, targetProgress))
-      }
-    }, 30)
-    return () => clearTimeout(timer)
-  }, [progress, targetProgress])
-
-  const circumference = 2 * Math.PI * 90
-  const strokeDashoffset = circumference - (progress / 100) * circumference
-
-  return (
-    <Card
-      className="p-4 transition-all duration-500 hover:shadow-xl animate-slide-in-up overflow-hidden"
-      style={{ animationDelay: "800ms" }}
-    >
-      <h2 className="text-lg font-semibold text-foreground mb-4">Project Progress</h2>
-      <div className="flex flex-col items-center">
-        <div className="relative w-40 h-40 mb-4">
-          <div
-            className="absolute inset-0 rounded-full opacity-20"
-            style={{
-              background:
-                "repeating-linear-gradient(45deg, transparent, transparent 6px, oklch(0.42 0.15 155) 6px, oklch(0.42 0.15 155) 12px)",
-            }}
-          />
-          <svg className="w-full h-full -rotate-90 relative z-10" viewBox="0 0 160 160">
-            <circle
-              cx="80"
-              cy="80"
-              r="70"
-              stroke="currentColor"
-              strokeWidth="12"
-              fill="none"
-              className="text-muted/30"
-            />
-            <circle
-              cx="80"
-              cy="80"
-              r="70"
-              stroke="currentColor"
-              strokeWidth="12"
-              fill="none"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              className="text-primary transition-all duration-1000 ease-out"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl font-bold text-foreground">{progress}%</span>
-            <span className="text-xs text-muted-foreground mt-1">Project Ended</span>
-          </div>
-        </div>
-        <div className="flex flex-wrap justify-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0" />
-            <span className="text-muted-foreground whitespace-nowrap">Completed</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-foreground flex-shrink-0" />
-            <span className="text-muted-foreground whitespace-nowrap">In Progress</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              style={{
-                background:
-                  "repeating-linear-gradient(45deg, transparent, transparent 2px, oklch(0.55 0.02 120) 2px, oklch(0.55 0.02 120) 4px)",
-              }}
-            />
-            <span className="text-muted-foreground whitespace-nowrap">Pending</span>
-          </div>
-        </div>
-      </div>
-    </Card>
-  )
-}
-</file>
-
-<file path="components/dashboard/reminders.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Video } from "lucide-react"
-
-export function Reminders() {
-  return (
-    <Card
-      className="p-6 transition-all duration-500 hover:shadow-xl animate-slide-in-up"
-      style={{ animationDelay: "500ms" }}
-    >
-      <h2 className="text-xl font-semibold text-foreground mb-6">Reminders</h2>
-      <div className="space-y-4">
-        <div className="bg-card border border-border rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]">
-          <h3 className="font-semibold text-foreground mb-1">Meeting with Arc Company</h3>
-          <p className="text-sm text-muted-foreground mb-4">Time : 02.00 pm - 04.00 pm</p>
-          <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:shadow-lg hover:shadow-primary/30">
-            <Video className="w-4 h-4 mr-2" />
-            Start Meeting
-          </Button>
-        </div>
-      </div>
-    </Card>
-  )
-}
-</file>
-
-<file path="components/dashboard/sidebar.tsx">
-"use client"
-
-import { LayoutDashboard, CheckSquare, Calendar, BarChart3, Users, Settings, HelpCircle, LogOut } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-
-const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: CheckSquare, label: "Tasks", badge: "124", href: "/tasks" },
-  { icon: Calendar, label: "Calendar", href: "/calendar" },
-  { icon: BarChart3, label: "Analytics", href: "/analytics" },
-  { icon: Users, label: "Team", href: "/team" },
-]
-
-const generalItems = [
-  { icon: Settings, label: "Settings", href: "/settings" },
-  { icon: HelpCircle, label: "Help", href: "/help" },
-  { icon: LogOut, label: "Logout", href: "/logout" },
-]
-
-export function Sidebar() {
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null)
-  const pathname = usePathname()
-
-  return (
-    <aside className="fixed top-0 left-0 w-64 bg-card border-r border-border p-4 h-screen overflow-y-auto lg:block">
-      <div className="flex items-center gap-2 mb-6 group cursor-pointer">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center transition-transform group-hover:scale-110 duration-300 relative">
-            <div
-              className="w-1.5 h-1.5 rounded-full bg-primary-foreground absolute"
-              style={{ top: "30%", left: "30%" }}
-            />
-            <div
-              className="w-1.5 h-1.5 rounded-full bg-primary-foreground absolute"
-              style={{ top: "30%", right: "30%" }}
-            />
-            <div className="w-3 h-1.5 border-b-2 border-primary-foreground rounded-full absolute bottom-2.5" />
-          </div>
-          <span className="text-lg font-semibold text-foreground">Tasko</span>
-        </Link>
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <p className="text-[10px] font-medium text-muted-foreground mb-2 uppercase tracking-wider">Menu</p>
-          <nav className="space-y-0.5">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onMouseEnter={() => setHoveredItem(item.label)}
-                  onMouseLeave={() => setHoveredItem(null)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-300",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                    hoveredItem === item.label && !isActive && "translate-x-1",
-                  )}
-                >
-                  <item.icon className="w-4 h-4" />
-                  <span className="text-sm">{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-semibold px-1.5 py-0.5 rounded-full animate-pulse">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              )
-            })}
-          </nav>
-        </div>
-
-        <div>
-          <p className="text-[10px] font-medium text-muted-foreground mb-2 uppercase tracking-wider">General</p>
-          <nav className="space-y-0.5">
-            {generalItems.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onMouseEnter={() => setHoveredItem(item.label)}
-                  onMouseLeave={() => setHoveredItem(null)}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-300",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                    hoveredItem === item.label && !isActive && "translate-x-1",
-                  )}
-                >
-                  <item.icon className="w-4 h-4" />
-                  <span className="text-sm">{item.label}</span>
-                </Link>
-              )
-            })}
-          </nav>
-        </div>
-      </div>
-    </aside>
-  )
-}
-</file>
-
-<file path="components/dashboard/stats-cards.tsx">
-"use client"
-
-import { ArrowUpRight, TrendingUp } from "lucide-react"
-import { Card } from "@/components/ui/card"
-import { useState } from "react"
-
-const stats = [
-  {
-    title: "Total Projects",
-    value: "24",
-    increase: "Increased from last month",
-    bgColor: "bg-primary",
-    textColor: "text-primary-foreground",
-    delay: "0ms",
-  },
-  {
-    title: "Ended Projects",
-    value: "10",
-    increase: "Increased from last month",
-    bgColor: "bg-card",
-    textColor: "text-foreground",
-    delay: "100ms",
-  },
-  {
-    title: "Running Projects",
-    value: "12",
-    increase: "Increased from last month",
-    bgColor: "bg-card",
-    textColor: "text-foreground",
-    delay: "200ms",
-  },
-  {
-    title: "Pending Project",
-    value: "2",
-    subtitle: "On Discuss",
-    bgColor: "bg-card",
-    textColor: "text-foreground",
-    delay: "300ms",
-  },
-]
-
-export function StatsCards() {
-  const [hoveredCard, setHoveredCard] = useState<number | null>(null)
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      {stats.map((stat, index) => (
-        <Card
-          key={stat.title}
-          onMouseEnter={() => setHoveredCard(index)}
-          onMouseLeave={() => setHoveredCard(null)}
-          style={{ animationDelay: stat.delay }}
-          className={`${stat.bgColor} ${stat.textColor} p-4 transition-all duration-500 ease-out animate-slide-in-up cursor-pointer ${
-            hoveredCard === index ? "scale-105 shadow-2xl" : "shadow-lg"
-          }`}
-        >
-          <div className="flex items-start justify-between mb-3">
-            <h3 className="text-xs font-medium opacity-90">{stat.title}</h3>
-            <div
-              className={`w-6 h-6 rounded-full ${
-                stat.bgColor === "bg-primary" ? "bg-primary-foreground/20" : "bg-primary"
-              } flex items-center justify-center transition-transform duration-300 ${
-                hoveredCard === index ? "rotate-45" : ""
-              }`}
-            >
-              <ArrowUpRight
-                className={`w-3 h-3 ${stat.bgColor === "bg-primary" ? "text-primary-foreground" : "text-primary-foreground"}`}
-              />
-            </div>
-          </div>
-          <p className="text-3xl font-bold mb-2">{stat.value}</p>
-          <div className="flex items-center gap-1.5 text-xs opacity-80">
-            {stat.increase && (
-              <>
-                <TrendingUp className="w-3 h-3" />
-                <span>{stat.increase}</span>
-              </>
-            )}
-            {stat.subtitle && <span>{stat.subtitle}</span>}
-          </div>
-        </Card>
-      ))}
-    </div>
-  )
-}
-</file>
-
-<file path="components/dashboard/team-collaboration.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Plus } from "lucide-react"
-
-const members = [
-  {
-    name: "Alexandra Deff",
-    task: "Github Project Repository",
-    status: "Completed",
-    statusColor: "bg-emerald-100 text-emerald-700",
-    avatar: "AD",
-    avatarImage: "/avatars/avatar-1.jpg",
-  },
-  {
-    name: "Edwin Adenike",
-    task: "Integrate User Authentication System",
-    status: "In Progress",
-    statusColor: "bg-amber-100 text-amber-700",
-    avatar: "EA",
-    avatarImage: "/avatars/avatar-2.jpg",
-  },
-  {
-    name: "Isaac Oluwatemilorun",
-    task: "Develop Search and Filter Functionality",
-    status: "Pending",
-    statusColor: "bg-rose-100 text-rose-700",
-    avatar: "IO",
-    avatarImage: "/avatars/avatar-3.jpg",
-  },
-  {
-    name: "David Oshodi",
-    task: "Responsive Layout for Homepage",
-    status: "In Progress",
-    statusColor: "bg-amber-100 text-amber-700",
-    avatar: "DO",
-    avatarImage: "/avatars/avatar-4.jpg",
-  },
-]
-
-export function TeamCollaboration() {
-  return (
-    <Card
-      className="p-6 transition-all duration-500 hover:shadow-xl animate-slide-in-up"
-      style={{ animationDelay: "600ms" }}
-    >
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-foreground">Team Collaboration</h2>
-        <Button variant="outline" size="sm" className="transition-all duration-300 hover:scale-105 bg-transparent">
-          <Plus className="w-4 h-4 mr-1" />
-          Add Member
-        </Button>
-      </div>
-      <div className="space-y-4">
-        {members.map((member, index) => (
-          <div
-            key={member.name}
-            className="flex items-center gap-4 p-3 rounded-lg hover:bg-secondary transition-all duration-300 cursor-pointer group"
-            style={{ animationDelay: `${650 + index * 100}ms` }}
-          >
-            <Avatar className="w-12 h-12 ring-2 ring-primary/20 transition-all duration-300 group-hover:ring-primary/40 group-hover:scale-110">
-              <AvatarImage src={member.avatarImage || "/placeholder.svg"} alt={member.name} />
-              <AvatarFallback className="bg-primary text-primary-foreground">{member.avatar}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground text-sm">{member.name}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                Working on <span className="font-medium">{member.task}</span>
-              </p>
-            </div>
-            <span
-              className={`${member.statusColor} text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-300 group-hover:scale-105 whitespace-nowrap`}
-            >
-              {member.status}
-            </span>
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-}
-</file>
-
-<file path="components/dashboard/time-tracker.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Pause, Square } from "lucide-react"
-import { useState, useEffect } from "react"
-
-export function TimeTracker() {
-  const [seconds, setSeconds] = useState(24 * 3600 + 8)
-  const [isRunning, setIsRunning] = useState(true)
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (isRunning) {
-      interval = setInterval(() => {
-        setSeconds((s) => s + 1)
-      }, 1000)
-    }
-    return () => clearInterval(interval)
-  }, [isRunning])
-
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
-
-  const formatTime = (num: number) => String(num).padStart(2, "0")
-
-  return (
-    <Card
-      className="bg-foreground text-background p-4 transition-all duration-500 hover:shadow-2xl animate-slide-in-up overflow-hidden relative group"
-      style={{ animationDelay: "1000ms" }}
-    >
-      <div className="absolute top-0 right-0 w-48 h-full opacity-15">
-        {[...Array(6)].map((_, i) => (
-          <svg
-            key={i}
-            className="absolute"
-            style={{
-              top: `${i * 50}px`,
-              right: `-${i * 10}px`,
-              width: "150px",
-              height: "80px",
-            }}
-            viewBox="0 0 100 50"
-            preserveAspectRatio="none"
-          >
-            <path
-              d="M0,25 Q12.5,10 25,25 T50,25 T75,25 T100,25"
-              fill="none"
-              stroke="oklch(0.42 0.15 155)"
-              strokeWidth="2"
-            />
-          </svg>
-        ))}
-      </div>
-
-      <div className="relative z-10">
-        <h2 className="text-lg font-semibold mb-4">Time Tracker</h2>
-        <div className="text-4xl sm:text-5xl font-mono font-bold mb-4 tracking-tight break-all">
-          {formatTime(hours)}:{formatTime(minutes)}:{formatTime(secs)}
-        </div>
-        <div className="flex gap-3">
-          <Button
-            onClick={() => setIsRunning(!isRunning)}
-            size="icon"
-            className="w-10 h-10 rounded-full bg-background text-foreground hover:bg-background/90 transition-all duration-300 hover:scale-110"
-          >
-            <Pause className="w-4 h-4" />
-          </Button>
-          <Button
-            onClick={() => {
-              setSeconds(0)
-              setIsRunning(false)
-            }}
-            size="icon"
-            className="w-10 h-10 rounded-full bg-destructive hover:bg-destructive/90 transition-all duration-300 hover:scale-110"
-          >
-            <Square className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-    </Card>
-  )
-}
-</file>
-
-<file path="components/help/help-content.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Search, BookOpen, Video, MessageCircle, Mail } from "lucide-react"
-
-const helpCategories = [
-  {
-    icon: BookOpen,
-    title: "Documentation",
-    description: "Browse our comprehensive guides and tutorials",
-    color: "bg-blue-500",
-  },
-  { icon: Video, title: "Video Tutorials", description: "Watch step-by-step video guides", color: "bg-purple-500" },
-  {
-    icon: MessageCircle,
-    title: "Community Forum",
-    description: "Connect with other users and get answers",
-    color: "bg-green-600",
-  },
-  { icon: Mail, title: "Contact Support", description: "Get help from our support team", color: "bg-amber-500" },
-]
-
-const faqs = [
-  {
-    question: "How do I create a new project?",
-    answer: "Click the 'Add Project' button on the dashboard to create a new project.",
-  },
-  {
-    question: "Can I invite team members?",
-    answer: "Yes, go to the Team page and click 'Add Member' to invite new team members.",
-  },
-  {
-    question: "How do I track time on tasks?",
-    answer: "Use the Time Tracker widget on the dashboard to start tracking time for your tasks.",
-  },
-  {
-    question: "Can I export my data?",
-    answer: "Yes, you can export your data from the Settings page under Data Management.",
-  },
-]
-
-export function HelpContent() {
-  return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
-      <div className="relative">
-        <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search for help..." className="pl-10 h-12" />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {helpCategories.map((category, index) => (
-          <Card
-            key={category.title}
-            className="p-6 hover:shadow-lg transition-all duration-300 cursor-pointer animate-slide-in"
-            style={{ animationDelay: `${index * 100}ms` }}
-          >
-            <div className="flex items-start gap-4">
-              <div className={`p-3 rounded-lg ${category.color}`}>
-                <category.icon className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1">{category.title}</h3>
-                <p className="text-sm text-muted-foreground">{category.description}</p>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <Card className="p-6">
-        <h3 className="font-semibold text-lg mb-6">Frequently Asked Questions</h3>
-        <div className="space-y-4">
-          {faqs.map((faq, index) => (
-            <div
-              key={faq.question}
-              className="p-4 rounded-lg border border-border hover:bg-secondary transition-all duration-300 animate-slide-in"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <h4 className="font-medium mb-2">{faq.question}</h4>
-              <p className="text-sm text-muted-foreground">{faq.answer}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </div>
   )
 }
 </file>
@@ -1913,273 +549,6 @@ export function SettingsContent() {
           </div>
         </div>
       </Card>
-    </div>
-  )
-}
-</file>
-
-<file path="components/tasks/tasks-content.tsx">
-"use client"
-
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Filter, Calendar, Tag } from "lucide-react"
-import { useState } from "react"
-
-const tasks = [
-  {
-    id: 1,
-    title: "Design landing page mockup",
-    project: "Website Redesign",
-    priority: "High",
-    dueDate: "Nov 24, 2024",
-    completed: false,
-    tags: ["Design", "UI/UX"],
-  },
-  {
-    id: 2,
-    title: "Implement authentication flow",
-    project: "Mobile App",
-    priority: "High",
-    dueDate: "Nov 25, 2024",
-    completed: false,
-    tags: ["Backend", "Security"],
-  },
-  {
-    id: 3,
-    title: "Review pull requests",
-    project: "Github Project",
-    priority: "Medium",
-    dueDate: "Nov 23, 2024",
-    completed: true,
-    tags: ["Code Review"],
-  },
-  {
-    id: 4,
-    title: "Update documentation",
-    project: "API Development",
-    priority: "Low",
-    dueDate: "Nov 26, 2024",
-    completed: false,
-    tags: ["Documentation"],
-  },
-  {
-    id: 5,
-    title: "Fix responsive layout issues",
-    project: "Website Redesign",
-    priority: "High",
-    dueDate: "Nov 24, 2024",
-    completed: false,
-    tags: ["Frontend", "Bug"],
-  },
-  {
-    id: 6,
-    title: "Database optimization",
-    project: "Backend System",
-    priority: "Medium",
-    dueDate: "Nov 27, 2024",
-    completed: false,
-    tags: ["Database", "Performance"],
-  },
-]
-
-export function TasksContent() {
-  const [filter, setFilter] = useState("all")
-
-  const filteredTasks =
-    filter === "all"
-      ? tasks
-      : filter === "completed"
-        ? tasks.filter((t) => t.completed)
-        : tasks.filter((t) => !t.completed)
-
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search tasks..." className="pl-10" />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2 bg-transparent">
-            <Filter className="w-4 h-4" />
-            Filter
-          </Button>
-          <Button variant="outline" className="gap-2 bg-transparent">
-            <Calendar className="w-4 h-4" />
-            Date
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <Button variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")} size="sm">
-          All ({tasks.length})
-        </Button>
-        <Button variant={filter === "active" ? "default" : "outline"} onClick={() => setFilter("active")} size="sm">
-          Active ({tasks.filter((t) => !t.completed).length})
-        </Button>
-        <Button
-          variant={filter === "completed" ? "default" : "outline"}
-          onClick={() => setFilter("completed")}
-          size="sm"
-        >
-          Completed ({tasks.filter((t) => t.completed).length})
-        </Button>
-      </div>
-
-      <div className="grid gap-4">
-        {filteredTasks.map((task, index) => (
-          <Card
-            key={task.id}
-            className="p-4 hover:shadow-lg transition-all duration-300 cursor-pointer animate-slide-in"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <div className="flex items-start gap-4">
-              <Checkbox checked={task.completed} className="mt-1" />
-              <div className="flex-1 space-y-2">
-                <div className="flex items-start justify-between gap-4">
-                  <h3 className={`font-semibold text-foreground ${task.completed ? "line-through opacity-60" : ""}`}>
-                    {task.title}
-                  </h3>
-                  <Badge
-                    variant={
-                      task.priority === "High" ? "destructive" : task.priority === "Medium" ? "default" : "secondary"
-                    }
-                    className="shrink-0"
-                  >
-                    {task.priority}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Tag className="w-4 h-4" />
-                    {task.project}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {task.dueDate}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  {task.tags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  )
-}
-</file>
-
-<file path="components/team/team-content.tsx">
-"use client"
-
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Mail, Phone, MoreHorizontal } from "lucide-react"
-
-const teamMembers = [
-  {
-    name: "Alexandra Deff",
-    role: "Product Designer",
-    email: "alexandra@tasko.com",
-    status: "active",
-    tasks: 12,
-    avatar: "/avatars/avatar-1.jpg",
-    initials: "AD",
-  },
-  {
-    name: "Edwin Adenike",
-    role: "Frontend Developer",
-    email: "edwin@tasko.com",
-    status: "active",
-    tasks: 8,
-    avatar: "/avatars/avatar-2.jpg",
-    initials: "EA",
-  },
-  {
-    name: "Isaac Oluwatemilorun",
-    role: "Backend Developer",
-    email: "isaac@tasko.com",
-    status: "away",
-    tasks: 15,
-    avatar: "/avatars/avatar-3.jpg",
-    initials: "IO",
-  },
-  {
-    name: "David Oshodi",
-    role: "UI/UX Designer",
-    email: "david@tasko.com",
-    status: "active",
-    tasks: 6,
-    avatar: "/avatars/avatar-4.jpg",
-    initials: "DO",
-  },
-]
-
-export function TeamContent() {
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {teamMembers.map((member, index) => (
-          <Card
-            key={member.email}
-            className="p-6 hover:shadow-lg transition-all duration-300 animate-slide-in"
-            style={{ animationDelay: `${index * 100}ms` }}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <Avatar className="w-16 h-16 border-2 border-primary/20">
-                <AvatarImage src={member.avatar || "/placeholder.svg"} alt={member.name} />
-                <AvatarFallback>{member.initials}</AvatarFallback>
-              </Avatar>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <h3 className="font-semibold text-lg">{member.name}</h3>
-                <p className="text-sm text-muted-foreground">{member.role}</p>
-              </div>
-
-              <Badge variant={member.status === "active" ? "default" : "secondary"}>
-                {member.status === "active" ? "Active" : "Away"}
-              </Badge>
-
-              <div className="pt-2 border-t border-border">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Active Tasks</span>
-                  <span className="font-semibold">{member.tasks}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                  <Mail className="w-4 h-4 mr-1" />
-                  Email
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1 bg-transparent">
-                  <Phone className="w-4 h-4 mr-1" />
-                  Call
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
     </div>
   )
 }
@@ -9023,6 +7392,9 @@ export { useToast, toast }
 <file path="next.config.mjs">
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -9040,10 +7412,10 @@ export default nextConfig
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
+    "build": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096\" next build",
+    "dev": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096\" next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096\" next start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -9102,6 +7474,7 @@ export default nextConfig
     "@types/node": "^22.19.21",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "cross-env": "^10.1.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.1",
     "tw-animate-css": "1.3.3",
@@ -9284,6 +7657,1292 @@ export default nextConfig
   "exclude": [
     "node_modules"
   ]
+}
+</file>
+
+<file path="types/cafeteria.ts">
+// Re-exportamos desde lib/api para mantener compatibilidad
+export type {
+  Usuario,
+  Categoria,
+  ItemCatalogo,
+  Mesa,
+  MesaDetalle,
+  ItemPedidoAPI,
+  Pedido,
+  Rol,
+  EstadoPedidoAPI as EstadoPedido,
+  TipoMesa,
+} from "@/lib/api"
+</file>
+
+<file path="app/catalogo/page.tsx">
+import { Sidebar, BottomNav, MobileTopBar } from "@/components/dashboard/sidebar"
+import { Header } from "@/components/dashboard/header"
+import { CatalogoCrearPedido } from "@/components/cafeteria/catalogo-crear-pedido"
+import { AuthGuard } from "@/components/auth/auth-guard"
+
+export default function CatalogoPage() {
+  return (
+    <AuthGuard>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <main className="flex-1 lg:ml-64 pb-20 lg:pb-0">
+          <MobileTopBar title="Catálogo" />
+          <div className="p-4 lg:p-6">
+            <Header title="Catálogo" description="Seleccioná ítems para armar el pedido" />
+            <div className="mt-4 lg:mt-5"><CatalogoCrearPedido /></div>
+          </div>
+        </main>
+        <BottomNav />
+      </div>
+    </AuthGuard>
+  )
+}
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── DRIVE Café & Lubricentro — Design Tokens ── */
+:root {
+  --background: oklch(0.13 0.008 50);        /* Gris Grafito oscuro */
+  --foreground: oklch(0.96 0.01 80);
+  --card: oklch(0.17 0.01 50);               /* Tarjetas ligeramente más claras */
+  --card-foreground: oklch(0.96 0.01 80);
+  --popover: oklch(0.17 0.01 50);
+  --popover-foreground: oklch(0.96 0.01 80);
+  --primary: oklch(0.62 0.18 47);            /* Naranja Cálido #F57C00 */
+  --primary-foreground: oklch(0.98 0.005 0);
+  --secondary: oklch(0.22 0.015 50);
+  --secondary-foreground: oklch(0.88 0.02 80);
+  --muted: oklch(0.22 0.015 50);
+  --muted-foreground: oklch(0.65 0.02 80);
+  --accent: oklch(0.38 0.09 47);             /* Marrón Café #6F4E37 */
+  --accent-foreground: oklch(0.93 0.02 80);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 0);
+  --border: oklch(0.26 0.015 50);
+  --input: oklch(0.26 0.015 50);
+  --ring: oklch(0.62 0.18 47);
+  /* Charts */
+  --chart-1: oklch(0.62 0.18 47);            /* orange */
+  --chart-2: oklch(0.38 0.09 47);            /* coffee */
+  --chart-3: oklch(0.87 0.08 90);            /* beige */
+  --chart-4: oklch(0.52 0.12 130);           /* olive */
+  --chart-5: oklch(0.45 0.015 50);           /* graphite mid */
+  --radius: 0.75rem;
+  /* Sidebar */
+  --sidebar: oklch(0.15 0.01 50);
+  --sidebar-foreground: oklch(0.93 0.01 80);
+  --sidebar-primary: oklch(0.62 0.18 47);
+  --sidebar-primary-foreground: oklch(0.98 0.005 0);
+  --sidebar-accent: oklch(0.22 0.015 50);
+  --sidebar-accent-foreground: oklch(0.93 0.01 80);
+  --sidebar-border: oklch(0.26 0.015 50);
+  --sidebar-ring: oklch(0.62 0.18 47);
+}
+
+@theme inline {
+  --font-sans: 'Montserrat', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  /* DRIVE custom colors */
+  --color-drive-orange: #F57C00;
+  --color-drive-coffee: #6F4E37;
+  --color-drive-beige: #E6D3A3;
+  --color-drive-olive: #6B8E23;
+  --color-drive-graphite: #2E2E2E;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ── Animaciones ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-5px); }
+}
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes barSlideUp {
+  from { transform: scaleY(0); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-float        { animation: float 3s ease-in-out infinite; }
+.animate-slide-in-up  { animation: slideInUp 0.5s ease-out forwards; }
+.animate-shimmer      { animation: shimmer 1.5s ease-in-out infinite; }
+.animate-fade-in      { animation: fade-in 0.2s ease-out forwards; }
+
+/* Ocultar scrollbar en filtro de categorías móvil */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+</file>
+
+<file path="app/layout.tsx">
+import type React from "react"
+import type { Metadata } from "next"
+import { Montserrat, Playfair_Display } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
+import { ThemeProvider } from "@/components/theme-provider"
+import { AuthStore } from "@/context/auth-store"
+import { CafeteriaStore } from "@/context/cafeteria-store"
+import "./globals.css"
+
+const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-sans", weight: ["400","500","600","700","800","900"] })
+const playfair   = Playfair_Display({ subsets: ["latin"], variable: "--font-serif", style: ["normal","italic"], weight: ["400","500","600","700"] })
+
+export const metadata: Metadata = {
+  title: "DRIVE — Café & Lubricentro",
+  description: "Sistema de gestión DRIVE",
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="es" className="dark">
+      <body className={`${montserrat.variable} ${playfair.variable} font-sans antialiased`}>
+        <ThemeProvider defaultTheme="dark" storageKey="drive-theme">
+          <AuthStore>
+            <CafeteriaStore>
+              {children}
+            </CafeteriaStore>
+          </AuthStore>
+        </ThemeProvider>
+        <Analytics />
+      </body>
+    </html>
+  )
+}
+</file>
+
+<file path="app/mesas/page.tsx">
+import { Sidebar, BottomNav, MobileTopBar } from "@/components/dashboard/sidebar"
+import { Header } from "@/components/dashboard/header"
+import { MesasContent } from "@/components/cafeteria/mesas-content"
+import { AuthGuard } from "@/components/auth/auth-guard"
+
+export default function MesasPage() {
+  return (
+    <AuthGuard>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <main className="flex-1 lg:ml-64 pb-20 lg:pb-0">
+          <MobileTopBar title="Mesas" />
+          <div className="p-4 lg:p-6">
+            <Header title="Mesas & Barra" description="Estado en tiempo real del salón" />
+            <div className="mt-4 lg:mt-5"><MesasContent /></div>
+          </div>
+        </main>
+        <BottomNav />
+      </div>
+    </AuthGuard>
+  )
+}
+</file>
+
+<file path="app/page.tsx">
+import { Sidebar, BottomNav, MobileTopBar } from "@/components/dashboard/sidebar"
+import { Header } from "@/components/dashboard/header"
+import { PedidosView } from "@/components/cafeteria/pedidos-view"
+import { AuthGuard } from "@/components/auth/auth-guard"
+
+export default function HomePage() {
+  return (
+    <AuthGuard>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <main className="flex-1 lg:ml-64 pb-20 lg:pb-0">
+          <MobileTopBar title="Pedidos" />
+          <div className="p-4 lg:p-6">
+            <Header title="Pedidos" description="Estado en tiempo real · se actualiza cada 15 s" />
+            <div className="mt-4 lg:mt-5"><PedidosView /></div>
+          </div>
+        </main>
+        <BottomNav />
+      </div>
+    </AuthGuard>
+  )
+}
+</file>
+
+<file path="components/cafeteria/catalogo-crear-pedido.tsx">
+"use client"
+import { useState, useMemo } from "react"
+import { useStore } from "@/context/cafeteria-store"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ShoppingCart, Plus, Minus, Trash2, SendHorizonal, ChevronDown, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import type { ItemCatalogo, Mesa } from "@/lib/api"
+
+type CarritoItem = { item: ItemCatalogo; cantidad: number }
+
+export function CatalogoCrearPedido() {
+  const { catalogo, categorias, mesas, loadingCatalogo, crearPedido } = useStore()
+  const [catActiva, setCatActiva] = useState<string | null>(null)
+  const [carrito,   setCarrito]   = useState<CarritoItem[]>([])
+  const [mesaId,    setMesaId]    = useState<string>("")
+  const [sending,   setSending]   = useState(false)
+  const [exito,     setExito]     = useState(false)
+
+  const itemsFiltrados = useMemo(() =>
+    catActiva ? catalogo.filter(i => i.categoriaId === catActiva) : catalogo,
+  [catalogo, catActiva])
+
+  const mesasActivas = mesas.filter(m => m.activo)
+
+  const totalCarrito = carrito.reduce((a, c) => a + c.item.precio * c.cantidad, 0)
+  const cantTotal    = carrito.reduce((a, c) => a + c.cantidad, 0)
+
+  const agregarItem = (item: ItemCatalogo) => {
+    setCarrito(prev => {
+      const ex = prev.find(c => c.item.id === item.id)
+      if (ex) return prev.map(c => c.item.id === item.id ? { ...c, cantidad: c.cantidad + 1 } : c)
+      return [...prev, { item, cantidad: 1 }]
+    })
+  }
+
+  const cambiarCantidad = (itemId: string, delta: number) => {
+    setCarrito(prev =>
+      prev
+        .map(c => c.item.id === itemId ? { ...c, cantidad: c.cantidad + delta } : c)
+        .filter(c => c.cantidad > 0)
+    )
+  }
+
+  const enviarPedido = async () => {
+    if (!mesaId || carrito.length === 0) return
+    setSending(true)
+    try {
+      await crearPedido(mesaId, carrito.map(c => ({ itemId: c.item.id, cantidad: c.cantidad })))
+      setCarrito([])
+      setMesaId("")
+      setExito(true)
+      setTimeout(() => setExito(false), 3000)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (loadingCatalogo) return <CatalogoSkeleton />
+
+  return (
+    <div className="flex flex-col xl:flex-row gap-4 xl:gap-6">
+      {/* Columna catálogo */}
+      <div className="flex-1 min-w-0 space-y-4">
+        {/* Filtro categorías */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => setCatActiva(null)}
+            className={cn(
+              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border",
+              !catActiva
+                ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+                : "bg-card border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            )}
+          >
+            Todos
+          </button>
+          {categorias.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setCatActiva(cat.id === catActiva ? null : cat.id)}
+              className={cn(
+                "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border",
+                catActiva === cat.id
+                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+                  : "bg-card border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+              )}
+            >
+              {cat.emoji && <span>{cat.emoji}</span>}
+              {cat.nombre}
+            </button>
+          ))}
+        </div>
+
+        {/* Grid items */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+          {itemsFiltrados.map(item => {
+            const enCarrito = carrito.find(c => c.item.id === item.id)
+            return (
+              <button
+                key={item.id}
+                onClick={() => agregarItem(item)}
+                className={cn(
+                  "relative rounded-xl border p-3 text-left transition-all duration-200 active:scale-95",
+                  enCarrito
+                    ? "border-primary/60 bg-primary/8 shadow-md shadow-primary/15"
+                    : "border-border/50 bg-card hover:border-primary/40 hover:bg-secondary/50"
+                )}
+              >
+                {enCarrito && (
+                  <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                    {enCarrito.cantidad}
+                  </span>
+                )}
+                <div className="text-2xl mb-2">{item.emoji ?? "🍽️"}</div>
+                <p className="text-xs font-semibold text-foreground leading-tight line-clamp-2 mb-1.5">
+                  {item.nombre}
+                </p>
+                <p className="text-xs font-bold text-primary">
+                  ${item.precio.toLocaleString("es-AR")}
+                </p>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Panel carrito */}
+      <div className="xl:w-80 xl:flex-shrink-0">
+        <Card className="border-border/50 overflow-hidden sticky top-[4.5rem]">
+          <div className="p-4 border-b border-border/50 bg-secondary/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4 text-primary" />
+                <span className="font-semibold text-sm text-foreground">Pedido</span>
+              </div>
+              {cantTotal > 0 && (
+                <Badge className="bg-primary/15 text-primary border-primary/30 text-xs border rounded-full px-2">
+                  {cantTotal} ítem{cantTotal !== 1 ? "s" : ""}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {/* Selector mesa */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mesa / Barra</label>
+              <div className="relative">
+                <select
+                  value={mesaId}
+                  onChange={e => setMesaId(e.target.value)}
+                  className="w-full h-10 rounded-lg bg-secondary border border-border text-sm text-foreground px-3 pr-8 appearance-none focus:outline-none focus:border-primary transition-colors"
+                >
+                  <option value="">Seleccioná una mesa...</option>
+                  <optgroup label="Mesas">
+                    {mesasActivas.filter(m => m.tipo === "MESA").map(m => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Barra">
+                    {mesasActivas.filter(m => m.tipo === "BARRA").map(m => (
+                      <option key={m.id} value={m.id}>{m.label}</option>
+                    ))}
+                  </optgroup>
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Items carrito */}
+            {carrito.length === 0 ? (
+              <div className="py-8 text-center">
+                <ShoppingCart className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Tocá un ítem del catálogo para agregarlo</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {carrito.map(({ item, cantidad }) => (
+                  <div key={item.id} className="flex items-center gap-2 rounded-lg bg-secondary/50 p-2">
+                    <span className="text-lg flex-shrink-0">{item.emoji ?? "🍽️"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{item.nombre}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        ${(item.precio * cantidad).toLocaleString("es-AR")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => cambiarCantidad(item.id, -1)}
+                        className="w-6 h-6 rounded-md bg-secondary border border-border flex items-center justify-center hover:bg-destructive/10 hover:border-destructive/40 transition-colors"
+                      >
+                        {cantidad === 1 ? <Trash2 className="w-3 h-3 text-destructive" /> : <Minus className="w-3 h-3" />}
+                      </button>
+                      <span className="text-xs font-bold text-foreground w-4 text-center">{cantidad}</span>
+                      <button
+                        onClick={() => cambiarCantidad(item.id, 1)}
+                        className="w-6 h-6 rounded-md bg-secondary border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/40 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Total + enviar */}
+            {carrito.length > 0 && (
+              <>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <span className="text-sm font-semibold text-muted-foreground">Total</span>
+                  <span className="text-lg font-bold text-foreground">
+                    ${totalCarrito.toLocaleString("es-AR")}
+                  </span>
+                </div>
+                <Button
+                  onClick={enviarPedido}
+                  disabled={!mesaId || sending}
+                  className="w-full bg-primary hover:bg-primary/90 font-semibold gap-2 shadow-lg shadow-primary/25"
+                >
+                  {sending ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
+                  ) : exito ? (
+                    "✅ ¡Pedido enviado!"
+                  ) : (
+                    <><SendHorizonal className="w-4 h-4" /> Enviar pedido</>
+                  )}
+                </Button>
+              </>
+            )}
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function CatalogoSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        {[1,2,3,4].map(i => <Skeleton key={i} className="h-8 w-20 rounded-full" />)}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+        {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="components/cafeteria/mesas-content.tsx">
+"use client"
+import { useStore } from "@/context/cafeteria-store"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
+import { UtensilsCrossed, Coffeeee, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import type { Mesa } from "@/lib/api"
+
+export function MesasContent() {
+  const { mesas, loadingMesas, refetchMesas } = useStore()
+
+  if (loadingMesas) return <MesasSkeleton />
+
+  const mesasTipo  = mesas.filter(m => m.tipo === "MESA")
+  const barrasTipo = mesas.filter(m => m.tipo === "BARRA")
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {mesas.filter(m => m.pedidos.length > 0).length} de {mesas.length} con pedidos activos
+        </p>
+        <Button variant="ghost" size="sm" onClick={refetchMesas} className="gap-1.5 text-muted-foreground hover:text-foreground">
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline text-xs">Actualizar</span>
+        </Button>
+      </div>
+
+      <Section titulo="Mesas" icono={<UtensilsCrossed className="w-4 h-4" />} mesas={mesasTipo} />
+      <Section titulo="Barra" icono={<Coffeeee className="w-4 h-4" />} mesas={barrasTipo} />
+    </div>
+  )
+}
+
+function Section({ titulo, icono, mesas }: { titulo: string; icono: React.ReactNode; mesas: Mesa[] }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-muted-foreground">{icono}</span>
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-widest">{titulo}</h3>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3">
+        {mesas.map(m => <MesaCard key={m.id} mesa={m} />)}
+      </div>
+    </div>
+  )
+}
+
+function MesaCard({ mesa }: { mesa: Mesa }) {
+  const ocupada = mesa.pedidos.length > 0
+  const hayListo = mesa.pedidos.some(p => p.estado === "LISTO")
+  const total    = mesa.pedidos.reduce((a, p) => a + p.total, 0)
+
+  return (
+    <div className={cn(
+      "rounded-xl border p-4 flex flex-col gap-2 transition-all duration-200 cursor-default select-none",
+      ocupada
+        ? hayListo
+          ? "border-green-500/50 bg-green-500/5 shadow-sm shadow-green-500/10"
+          : "border-primary/50 bg-primary/5 shadow-sm shadow-primary/10"
+        : "border-border/40 bg-card hover:border-border/70"
+    )}>
+      <div className="flex items-start justify-between">
+        <span className={cn(
+          "text-xs font-bold uppercase tracking-wide",
+          ocupada ? (hayListo ? "text-green-400" : "text-primary") : "text-muted-foreground"
+        )}>
+          {mesa.label}
+        </span>
+        <div className={cn(
+          "w-2.5 h-2.5 rounded-full mt-0.5",
+          ocupada ? (hayListo ? "bg-green-400 shadow-sm shadow-green-400/60" : "bg-primary shadow-sm shadow-primary/60 animate-pulse") : "bg-muted-foreground/30"
+        )} />
+      </div>
+
+      {ocupada ? (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <Badge className={cn(
+              "text-[10px] px-1.5 py-0.5 border rounded-full font-medium",
+              hayListo
+                ? "bg-green-500/15 text-green-400 border-green-500/30"
+                : "bg-primary/15 text-primary border-primary/30"
+            )}>
+              {hayListo ? "¡Listo!" : `${mesa.pedidos.length} ped.`}
+            </Badge>
+          </div>
+          <p className="text-xs font-semibold text-foreground">
+            ${total.toLocaleString("es-AR")}
+          </p>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground/60">Libre</p>
+      )}
+    </div>
+  )
+}
+
+function MesasSkeleton() {
+  return (
+    <div className="space-y-6">
+      {[1, 2].map(s => (
+        <div key={s} className="space-y-3">
+          <Skeleton className="h-5 w-24" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+</file>
+
+<file path="components/cafeteria/pedidos-view.tsx">
+"use client"
+import { useStore } from "@/context/cafeteria-store"
+import { usePedidosActivos, useEstadoColor, useEstadoLabel, useAccionLabel } from "@/hooks/use-pedidos"
+import { Badge }    from "@/components/ui/badge"
+import { Button }   from "@/components/ui/button"
+import { Card }     from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  RefreshCw, Clock, ChevronRight, PackageCheck,
+  Plus, CheckCircle2, Circle, Timer, Truck,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import Link from "next/link"
+import type { Pedido } from "@/lib/api"
+
+// Íconos por estado para la tabla
+const ESTADO_ICON: Record<string, React.FC<{ className?: string }>> = {
+  PENDIENTE:      Circle,
+  EN_PREPARACION: Timer,
+  LISTO:          CheckCircle2,
+  ENTREGADO:      Truck,
+}
+
+// Config de botón por estado
+const BTN_CFG: Record<string, { label: string; cls: string }> = {
+  PENDIENTE:      { label: "Preparar",      cls: "bg-yellow-500 hover:bg-yellow-600 text-white" },
+  EN_PREPARACION: { label: "Marcar listo",  cls: "bg-primary hover:bg-primary/90 text-primary-foreground" },
+  LISTO:          { label: "Entregar",      cls: "bg-green-600 hover:bg-green-700 text-white" },
+  ENTREGADO:      { label: "Cobrar y cerrar", cls: "bg-blue-600 hover:bg-blue-700 text-white" },
+}
+
+const fmtPrecio = (n: number) =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n)
+
+const fmtHora = (iso: string) =>
+  new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+
+export function PedidosView() {
+  const { refreshing, lastUpdated } = useStore()
+  const { pedidos, loading, refetchPedidos, avanzarEstado, cerrarPedido } = usePedidosActivos()
+
+  if (loading) return <PedidosSkeleton />
+
+  const handleAccion = async (pedido: Pedido) => {
+    if (pedido.estado === "ENTREGADO") await cerrarPedido(pedido.id)
+    else await avanzarEstado(pedido.id)
+  }
+
+  return (
+    <div className="space-y-4">
+
+      {/* ── Barra superior ── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">
+            {pedidos.length === 0
+              ? "Sin pedidos activos"
+              : `${pedidos.length} pedido${pedidos.length !== 1 ? "s" : ""} activo${pedidos.length !== 1 ? "s" : ""}`}
+          </p>
+          {refreshing && (
+            <RefreshCw className="w-3.5 h-3.5 text-primary animate-spin" />
+          )}
+          {lastUpdated && !refreshing && (
+            <span className="text-[10px] text-muted-foreground/60">
+              · {lastUpdated.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost" size="sm"
+            onClick={refetchPedidos}
+            disabled={refreshing}
+            className="gap-1.5 text-muted-foreground hover:text-foreground h-8"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
+            <span className="text-xs">Actualizar</span>
+          </Button>
+          {/* Botón nuevo — solo desktop, en mobile está en la nav */}
+          <Link href="/catalogo" className="hidden lg:block">
+            <Button className="h-8 text-xs font-bold uppercase tracking-wide bg-primary text-primary-foreground hover:bg-primary/90 gap-1">
+              <Plus className="w-3.5 h-3.5" /> Nuevo pedido
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {pedidos.length === 0 ? (
+        <EmptyPedidos />
+      ) : (
+        <>
+          {/* ══════════════════════════════════════════════════════════════ */}
+          {/* MOBILE (< lg): cards verticales                               */}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          <div className="flex flex-col gap-3 lg:hidden">
+            {pedidos.map(p => (
+              <PedidoCard key={p.id} pedido={p} onAccion={handleAccion} />
+            ))}
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════ */}
+          {/* DESKTOP (≥ lg): TABLA completa estilo original                */}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          <Card className="hidden lg:block border-border/60 overflow-hidden">
+            {/* Header tabla */}
+            <div className="grid grid-cols-[48px_120px_1fr_110px_150px_130px] gap-3 px-5 py-3 border-b border-border/50 bg-secondary/40">
+              {["#", "Mesa", "Pedido", "Total", "Estado", "Acción"].map(h => (
+                <p key={h} className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  {h}
+                </p>
+              ))}
+            </div>
+
+            {/* Filas */}
+            <div className="divide-y divide-border/30">
+              {pedidos.map(pedido => {
+                const colorClass  = useEstadoColor(pedido.estado)
+                const estadoLabel = useEstadoLabel(pedido.estado)
+                const btnCfg      = BTN_CFG[pedido.estado]
+                const Icon        = ESTADO_ICON[pedido.estado] ?? Circle
+                const resumen     = pedido.items
+                  .map(i => `${i.item.emoji ?? "•"} ${i.item.nombre}${i.cantidad > 1 ? ` ×${i.cantidad}` : ""}`)
+                  .join("  ·  ")
+
+                return (
+                  <div
+                    key={pedido.id}
+                    className="grid grid-cols-[48px_120px_1fr_110px_150px_130px] gap-3 px-5 py-3.5 items-center hover:bg-secondary/20 transition-colors duration-150"
+                  >
+                    {/* # */}
+                    <span className="text-xs font-bold text-muted-foreground bg-secondary rounded px-1.5 py-0.5 text-center w-fit">
+                      #{pedido.numero}
+                    </span>
+
+                    {/* Mesa */}
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{pedido.mesa.label}</p>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Clock className="w-3 h-3" />{fmtHora(pedido.creadoEn)}
+                      </p>
+                    </div>
+
+                    {/* Pedido */}
+                    <p className="text-xs text-muted-foreground truncate pr-4" title={resumen}>
+                      {resumen}
+                    </p>
+
+                    {/* Total */}
+                    <p className="text-sm font-extrabold text-primary">
+                      {fmtPrecio(pedido.total)}
+                    </p>
+
+                    {/* Estado */}
+                    <Badge className={cn("text-[10px] px-2.5 py-1 border rounded-full font-semibold flex items-center gap-1.5 w-fit", colorClass)}>
+                      <Icon className="w-3 h-3" />
+                      {estadoLabel}
+                    </Badge>
+
+                    {/* Acción */}
+                    {btnCfg && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleAccion(pedido)}
+                        className={cn("h-8 text-xs font-bold uppercase tracking-wide px-3 gap-1", btnCfg.cls)}
+                      >
+                        {btnCfg.label}
+                        <ChevronRight className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Card mobile ──────────────────────────────────────────────────────────────
+function PedidoCard({ pedido, onAccion }: { pedido: Pedido; onAccion: (p: Pedido) => Promise<void> }) {
+  const colorClass  = useEstadoColor(pedido.estado)
+  const estadoLabel = useEstadoLabel(pedido.estado)
+  const accionLabel = useAccionLabel(pedido.estado)
+
+  return (
+    <Card className="p-4 border-border/50 transition-all duration-200 hover:border-primary/40">
+      {/* Top */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-muted-foreground bg-secondary rounded px-1.5 py-0.5">
+            #{pedido.numero}
+          </span>
+          <span className="font-semibold text-foreground">{pedido.mesa.label}</span>
+        </div>
+        <Badge className={cn("text-[10px] px-2 py-0.5 border rounded-full font-medium flex-shrink-0", colorClass)}>
+          {estadoLabel}
+        </Badge>
+      </div>
+
+      {/* Items */}
+      <div className="space-y-1 mb-3">
+        {pedido.items.map(it => (
+          <div key={it.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>{it.item.emoji ?? "•"}</span>
+            <span className="truncate">{it.item.nombre}</span>
+            <span className="ml-auto flex-shrink-0 font-medium text-foreground">×{it.cantidad}</span>
+            <span className="text-muted-foreground/60 flex-shrink-0">
+              {fmtPrecio(it.item.precio * it.cantidad)}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
+        <div className="flex items-center gap-2">
+          <Clock className="w-3 h-3 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">{fmtHora(pedido.creadoEn)}</span>
+          <span className="font-extrabold text-primary text-sm">{fmtPrecio(pedido.total)}</span>
+        </div>
+        {accionLabel && (
+          <Button
+            size="sm"
+            onClick={() => onAccion(pedido)}
+            className={cn(
+              "h-8 text-xs px-3 gap-1 font-bold uppercase tracking-wide",
+              pedido.estado === "ENTREGADO"
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-primary hover:bg-primary/90 text-primary-foreground"
+            )}
+          >
+            {accionLabel}
+            {pedido.estado === "ENTREGADO"
+              ? <PackageCheck className="w-3.5 h-3.5" />
+              : <ChevronRight className="w-3 h-3" />
+            }
+          </Button>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+function EmptyPedidos() {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-4">
+        <PackageCheck className="w-8 h-8 text-muted-foreground" />
+      </div>
+      <h3 className="font-semibold text-foreground mb-1">Todo al día</h3>
+      <p className="text-sm text-muted-foreground">No hay pedidos activos en este momento</p>
+      <Link href="/catalogo" className="mt-4">
+        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 text-xs font-bold uppercase tracking-wide">
+          <Plus className="w-3.5 h-3.5" /> Crear pedido
+        </Button>
+      </Link>
+    </div>
+  )
+}
+
+function PedidosSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-8 w-28" />
+      </div>
+      {/* Mobile skeleton */}
+      <div className="lg:hidden space-y-3">
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
+      </div>
+      {/* Desktop skeleton */}
+      <Card className="hidden lg:block border-border/60 overflow-hidden">
+        <div className="px-5 py-3 border-b border-border/50 bg-secondary/40">
+          <Skeleton className="h-4 w-full" />
+        </div>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="px-5 py-4 border-b border-border/30">
+            <Skeleton className="h-5 w-full" />
+          </div>
+        ))}
+      </Card>
+    </div>
+  )
+}
+</file>
+
+<file path="components/dashboard/header.tsx">
+"use client"
+
+import type React from "react"
+import { Bell } from "lucide-react"
+import { Button } from "@/components/ui/button"
+
+interface HeaderProps {
+  title: string
+  description?: string
+  actions?: React.ReactNode
+}
+
+export function Header({ title, description, actions }: HeaderProps) {
+  return (
+    <div className="hidden lg:flex flex-row items-center justify-between gap-4 pb-5 border-b border-border">
+      <div>
+        <h1 className="font-extrabold italic tracking-wide uppercase text-2xl text-foreground">{title}</h1>
+        {description && <p className="font-serif italic text-sm text-primary mt-0.5">{description}</p>}
+      </div>
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="icon"
+          className="h-9 w-9 bg-secondary border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-200 relative">
+          <Bell className="w-4 h-4" />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+        </Button>
+        {actions && <div className="flex items-center gap-2">{actions}</div>}
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="components/dashboard/sidebar.tsx">
+"use client"
+import { ClipboardList, MapPin, BookOpen, Settings, LogOut } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { useState } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { useAuth } from "@/context/auth-store"
+
+const menuItems = [
+  { icon: ClipboardList, label: "Pedidos",  href: "/" },
+  { icon: MapPin,        label: "Mesas",    href: "/mesas" },
+  { icon: BookOpen,      label: "Catálogo", href: "/catalogo" },
+]
+
+export function Sidebar() {
+  const [hovered, setHovered] = useState<string | null>(null)
+  const pathname = usePathname()
+  const { usuario, logout } = useAuth()
+
+  const iniciales = usuario?.nombre
+    ? usuario.nombre.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+    : "??"
+
+  return (
+    <aside className="fixed top-0 left-0 w-64 bg-sidebar border-r border-sidebar-border p-5 h-screen flex-col hidden lg:flex">
+      <Link href="/" className="flex items-center gap-3 group mb-8">
+        <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/30 transition-transform group-hover:scale-105">
+          <Coffee className="w-5 h-5 text-primary-foreground" />
+        </div>
+        <div>
+          <p className="font-extrabold italic tracking-wider uppercase text-foreground text-lg leading-none">DRIVE</p>
+          <p className="font-serif italic text-xs text-primary tracking-wide leading-none mt-0.5">Café & Lubricentro</p>
+        </div>
+      </Link>
+
+      <div className="space-y-6 flex-1">
+        <div>
+          <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-widest px-2">Cafetería</p>
+          <nav className="space-y-0.5">
+            {menuItems.map(item => {
+              const active = pathname === item.href
+              return (
+                <Link key={item.href} href={item.href}
+                  onMouseEnter={() => setHovered(item.label)}
+                  onMouseLeave={() => setHovered(null)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    active
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                    hovered === item.label && !active && "translate-x-1"
+                  )}>
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
+        </div>
+
+        <div>
+          <nav className="space-y-0.5">
+            <button
+              onClick={logout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200">
+              <LogOut className="w-4 h-4" /> Cerrar sesión
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-sidebar-border flex items-center gap-3 px-2">
+        <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
+          <span className="text-xs font-bold text-primary">{iniciales}</span>
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-foreground truncate">{usuario?.nombre ?? "Usuario"}</p>
+          <p className="text-[10px] text-muted-foreground truncate">{usuario?.rol ?? ""}</p>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+export function BottomNav() {
+  const pathname = usePathname()
+  return (
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar border-t border-sidebar-border">
+      <div className="flex items-center justify-around h-16 px-2">
+        {menuItems.map(item => {
+          const active = pathname === item.href
+          return (
+            <Link key={item.href} href={item.href}
+              className={cn(
+                "flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl transition-all duration-200 min-w-0 flex-1",
+                active ? "text-primary" : "text-muted-foreground"
+              )}>
+              <div className={cn(
+                "w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200",
+                active ? "bg-primary/20 shadow-md shadow-primary/20" : ""
+              )}>
+                <item.icon className={cn("w-5 h-5", active && "text-primary")} />
+              </div>
+              <span className={cn(
+                "text-[10px] font-semibold leading-none",
+                active ? "text-primary" : "text-muted-foreground"
+              )}>
+                {item.label}
+              </span>
+            </Link>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
+export function MobileTopBar({ title }: { title: string }) {
+  const { logout, usuario } = useAuth()
+  return (
+    <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar sticky top-0 z-40">
+      <div className="flex items-center gap-2.5">
+        <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+          <Coffeee className="w-3.5 h-3.5 text-primary-foreground" />
+        </div>
+        <div>
+          <p className="font-extrabold italic tracking-wider uppercase text-foreground text-sm leading-none">DRIVE</p>
+          <p className="font-serif italic text-[9px] text-primary leading-none">Cafetería</p>
+        </div>
+      </div>
+      <p className="font-extrabold italic uppercase tracking-wide text-foreground text-sm">{title}</p>
+      <button onClick={logout} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors">
+        <LogOut className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+      </button>
+    </div>
+  )
+}
+</file>
+
+<file path="context/cafeteria-store.tsx">
+"use client"
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useTransition } from "react"
+import { api, type Pedido, type ItemCatalogo, type Categoria, type Mesa } from "@/lib/api"
+
+type CafeteriaCtx = {
+  pedidos: Pedido[]
+  mesas: Mesa[]
+  catalogo: ItemCatalogo[]
+  categorias: Categoria[]
+  loadingPedidos: boolean
+  loadingMesas: boolean
+  loadingCatalogo: boolean
+  refreshing: boolean           // true solo en background refresh (sin skeleton)
+  error: string | null
+  lastUpdated: Date | null
+  refetchPedidos: () => Promise<void>
+  refetchMesas: () => Promise<void>
+  crearPedido: (mesaId: string, items: { itemId: string; cantidad: number }[]) => Promise<void>
+  avanzarEstado: (pedidoId: string) => Promise<void>
+  cerrarPedido: (pedidoId: string) => Promise<void>
+  getPedidosMesa: (mesaId: string) => Pedido[]
+}
+
+const Ctx = createContext<CafeteriaCtx | null>(null)
+
+export function CafeteriaStore({ children }: { children: React.ReactNode }) {
+  const [pedidos,    setPedidos]    = useState<Pedido[]>([])
+  const [mesas,      setMesas]      = useState<Mesa[]>([])
+  const [catalogo,   setCatalogo]   = useState<ItemCatalogo[]>([])
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+
+  // loadingXxx = true solo la primera vez (muestra skeleton)
+  const [loadingPedidos,  setLoadingPedidos]  = useState(true)
+  const [loadingMesas,    setLoadingMesas]    = useState(true)
+  const [loadingCatalogo, setLoadingCatalogo] = useState(true)
+  // refreshing = true en polls silenciosos (NO muestra skeleton)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error,        setError]       = useState<string | null>(null)
+  const [lastUpdated,  setLastUpdated] = useState<Date | null>(null)
+
+  // Usamos ref para saber si ya cargamos la primera vez
+  const initializedPedidos = useRef(false)
+  const initializedMesas   = useRef(false)
+
+  // ── fetch silencioso (no muestra skeleton) ──────────────────────────────
+  const fetchPedidosSilent = useCallback(async () => {
+    try {
+      const data = await api.getPedidos()
+      // Actualizamos solo si cambió algo (evita re-render innecesario)
+      setPedidos(prev => {
+        const prevStr = JSON.stringify(prev.map(p => ({ id: p.id, estado: p.estado })))
+        const nextStr = JSON.stringify(data.map(p => ({ id: p.id, estado: p.estado })))
+        return prevStr === nextStr ? prev : data
+      })
+      setLastUpdated(new Date())
+    } catch (e: any) {
+      // Error silencioso en background, no mostramos al usuario
+      console.warn("Background refresh pedidos:", e.message)
+    }
+  }, [])
+
+  const fetchMesasSilent = useCallback(async () => {
+    try {
+      const data = await api.getMesas()
+      setMesas(prev => {
+        const prevStr = JSON.stringify(prev.map(m => ({ id: m.id, pedidos: m.pedidos.length })))
+        const nextStr = JSON.stringify(data.map(m => ({ id: m.id, pedidos: m.pedidos.length })))
+        return prevStr === nextStr ? prev : data
+      })
+    } catch (e: any) {
+      console.warn("Background refresh mesas:", e.message)
+    }
+  }, [])
+
+  // ── fetch inicial (muestra skeleton) ────────────────────────────────────
+  const refetchPedidos = useCallback(async () => {
+    if (!initializedPedidos.current) setLoadingPedidos(true)
+    else setRefreshing(true)
+    try {
+      const data = await api.getPedidos()
+      setPedidos(data)
+      setLastUpdated(new Date())
+      initializedPedidos.current = true
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoadingPedidos(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  const refetchMesas = useCallback(async () => {
+    if (!initializedMesas.current) setLoadingMesas(true)
+    else setRefreshing(true)
+    try {
+      const data = await api.getMesas()
+      setMesas(data)
+      initializedMesas.current = true
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoadingMesas(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  // ── montaje inicial ──────────────────────────────────────────────────────
+  useEffect(() => {
+    refetchPedidos()
+    refetchMesas()
+    api.getCategorias().then(setCategorias).catch(() => {})
+    api.getCatalogo().then(setCatalogo).catch(() => {}).finally(() => setLoadingCatalogo(false))
+  }, [refetchPedidos, refetchMesas])
+
+  // ── polling silencioso cada 30s ──────────────────────────────────────────
+  // SIN skeleton, SIN parpadeo — solo actualiza el estado si algo cambió
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!initializedPedidos.current) return
+      await fetchPedidosSilent()
+      await fetchMesasSilent()
+    }, 30_000)
+    return () => clearInterval(interval)
+  }, [fetchPedidosSilent, fetchMesasSilent])
+
+  // ── acciones ─────────────────────────────────────────────────────────────
+  const crearPedido = useCallback(async (mesaId: string, items: { itemId: string; cantidad: number }[]) => {
+    await api.crearPedido(mesaId, items)
+    await refetchPedidos()
+    await fetchMesasSilent()
+  }, [refetchPedidos, fetchMesasSilent])
+
+  const avanzarEstado = useCallback(async (pedidoId: string) => {
+    // Optimistic update — cambiamos el estado local ANTES de ir al server
+    setPedidos(prev => prev.map(p => {
+      if (p.id !== pedidoId) return p
+      const flujo: Record<string, string> = {
+        PENDIENTE: "EN_PREPARACION", EN_PREPARACION: "LISTO",
+        LISTO: "ENTREGADO", ENTREGADO: "CERRADO",
+      }
+      return { ...p, estado: (flujo[p.estado] ?? p.estado) as any }
+    }))
+    try {
+      await api.avanzarEstado(pedidoId)
+      // Confirmamos con el server en silencio
+      fetchPedidosSilent()
+    } catch (e) {
+      // Si falla, revertimos
+      await refetchPedidos()
+    }
+  }, [refetchPedidos, fetchPedidosSilent])
+
+  const cerrarPedido = useCallback(async (pedidoId: string) => {
+    // Optimistic: sacar de la lista inmediatamente
+    setPedidos(prev => prev.filter(p => p.id !== pedidoId))
+    try {
+      await api.cerrarPedido(pedidoId)
+      fetchMesasSilent()
+    } catch (e) {
+      await refetchPedidos()
+    }
+  }, [refetchPedidos, fetchMesasSilent])
+
+  const getPedidosMesa = useCallback((mesaId: string) =>
+    pedidos.filter(p => p.mesa.id === mesaId && p.estado !== "CERRADO"),
+  [pedidos])
+
+  return (
+    <Ctx.Provider value={{
+      pedidos, mesas, catalogo, categorias,
+      loadingPedidos, loadingMesas, loadingCatalogo,
+      refreshing, error, lastUpdated,
+      refetchPedidos, refetchMesas,
+      crearPedido, avanzarEstado, cerrarPedido, getPedidosMesa,
+    }}>
+      {children}
+    </Ctx.Provider>
+  )
+}
+
+export function useStore() {
+  const c = useContext(Ctx)
+  if (!c) throw new Error("useStore fuera de CafeteriaStore")
+  return c
 }
 </file>
 
