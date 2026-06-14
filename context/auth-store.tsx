@@ -1,59 +1,72 @@
 "use client"
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { api, type Usuario } from "@/lib/api"
 import { useRouter } from "next/navigation"
+import { api } from "@/lib/api"
+
+const TOKEN_KEY  = "drive_token"
+const USER_KEY   = "drive_usuario"
+
+type Usuario = {
+  id: string
+  email: string
+  nombre: string
+  rol: string
+}
 
 type AuthCtx = {
   usuario: Usuario | null
-  token: string | null
+  isAuthenticated: boolean
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
-  isAuthenticated: boolean
 }
 
 const Ctx = createContext<AuthCtx | null>(null)
 
 export function AuthStore({ children }: { children: React.ReactNode }) {
-  const [usuario, setUsuario] = useState<Usuario | null>(null)
-  const [token, setToken] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const [usuario,  setUsuario]  = useState<Usuario | null>(null)
+  const [loading,  setLoading]  = useState(true)
 
-  // Restore session on mount
+  // ── Al montar: leer token y usuario de localStorage ──
   useEffect(() => {
-    const t = localStorage.getItem("drive_token")
-    if (t) {
-      setToken(t)
-      api.me()
-        .then(setUsuario)
-        .catch(() => {
-          localStorage.removeItem("drive_token")
-          setToken(null)
-        })
-        .finally(() => setLoading(false))
-    } else {
+    try {
+      const token    = localStorage.getItem(TOKEN_KEY)
+      const userJson = localStorage.getItem(USER_KEY)
+      if (token && userJson) {
+        setUsuario(JSON.parse(userJson))
+      }
+    } catch {
+      // localStorage no disponible (SSR) — no hacer nada
+    } finally {
       setLoading(false)
     }
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await api.login(email, password)
-    localStorage.setItem("drive_token", data.access_token)
-    setToken(data.access_token)
+    // Guardar en localStorage para que persista entre recargas
+    localStorage.setItem(TOKEN_KEY,  data.access_token)
+    localStorage.setItem(USER_KEY,   JSON.stringify(data.usuario))
     setUsuario(data.usuario)
-    router.push("/")
+    router.replace("/")
   }, [router])
 
   const logout = useCallback(() => {
-    localStorage.removeItem("drive_token")
-    setToken(null)
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
     setUsuario(null)
-    router.push("/login")
+    router.replace("/login")
   }, [router])
 
   return (
-    <Ctx.Provider value={{ usuario, token, loading, login, logout, isAuthenticated: !!token }}>
+    <Ctx.Provider value={{
+      usuario,
+      isAuthenticated: !!usuario,
+      loading,
+      login,
+      logout,
+    }}>
       {children}
     </Ctx.Provider>
   )
