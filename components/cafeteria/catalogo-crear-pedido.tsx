@@ -73,8 +73,7 @@ export function CatalogoCrearPedido() {
   if (loadingCatalogo) return <CatalogoSkeleton />
 
   return (
-    <div className="animate-fade-in pb-28 lg:pb-6">
-
+    <>
       {/* ── Overlay éxito ── */}
       {success && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -85,157 +84,7 @@ export function CatalogoCrearPedido() {
         </div>
       )}
 
-      {/* ── Filtro categorías ── */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button
-          onClick={() => setCategoriaFiltro("todas")}
-          className={cn(
-            "flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all border whitespace-nowrap",
-            categoriaFiltro === "todas"
-              ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
-              : "bg-secondary text-muted-foreground border-border/50"
-          )}
-        >
-          Todo
-        </button>
-        {categorias.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setCategoriaFiltro(cat.id)}
-            className={cn(
-              "flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all border whitespace-nowrap",
-              categoriaFiltro === cat.id
-                ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
-                : "bg-secondary text-muted-foreground border-border/50"
-            )}
-          >
-            {cat.emoji && <span className="text-sm">{cat.emoji}</span>}
-            {cat.nombre}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Grid catálogo ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {itemsFiltrados.map(item => {
-          const qty = carrito[item.id] ?? 0
-          return (
-            <div
-              key={item.id}
-              className={cn(
-                "bg-card text-card-foreground rounded-xl p-3 shadow-sm flex flex-col transition-all duration-200 border overflow-hidden",
-                qty > 0
-                  ? "border-primary/60 bg-primary/5 shadow-md shadow-primary/10"
-                  : "border-border/50"
-              )}
-            >
-              {/* Info */}
-              <div className="flex flex-col gap-1 flex-1">
-                {item.emoji && (
-                  <span className="text-lg leading-none">{item.emoji}</span>
-                )}
-                <p className="font-semibold text-foreground text-xs leading-tight line-clamp-2 min-h-[32px]">
-                  {item.nombre}
-                </p>
-                {item.descripcion && (
-                  <p className="hidden lg:block text-[10px] text-muted-foreground leading-tight line-clamp-2">
-                    {item.descripcion}
-                  </p>
-                )}
-                <p className="font-extrabold text-primary text-sm mt-1">
-                  {fmtPrecio(item.precio)}
-                </p>
-              </div>
-
-              {/* Controles */}
-              <div className="mt-2">
-                {qty === 0 ? (
-                  <button
-                    onClick={() => add(item.id)}
-                    className="w-full h-8 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Agregar
-                  </button>
-                ) : (
-                  <div className="flex items-center justify-between gap-1">
-                    <button
-                      onClick={() => sub(item.id)}
-                      className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="font-extrabold text-primary text-base tabular-nums min-w-[1.5rem] text-center">
-                      {qty}
-                    </span>
-                    <button
-                      onClick={() => add(item.id)}
-                      className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center hover:bg-primary/80 transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-primary-foreground" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* ── DESKTOP: resumen pedido ── */}
-      {totalItems > 0 && (
-        <div className="hidden lg:block mt-6 bg-primary/5 border border-primary/40 rounded-xl p-5">
-          <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
-            <ShoppingCart className="w-4 h-4 text-primary" />
-            Resumen del pedido
-          </h3>
-          <div className="space-y-1.5 mb-4 max-h-48 overflow-y-auto">
-            {Object.entries(carrito).map(([id, qty]) => {
-              const item = catalogo.find(i => i.id === id)
-              if (!item) return null
-              return (
-                <div key={id} className="flex items-center justify-between text-sm gap-3">
-                  <span className="text-muted-foreground truncate flex items-center gap-1.5 min-w-0">
-                    {item.emoji} {item.nombre} ×{qty}
-                  </span>
-                  <span className="font-bold text-primary flex-shrink-0">
-                    {fmtPrecio(item.precio * qty)}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-          <div className="flex items-center justify-between mb-4 pt-3 border-t border-border/50">
-            <span className="font-semibold text-foreground">Total</span>
-            <span className="font-extrabold text-primary text-lg">{fmtPrecio(totalPrecio)}</span>
-          </div>
-          <div className="flex gap-3">
-            <Select value={mesaId} onValueChange={setMesaId}>
-              <SelectTrigger className="flex-1 h-10">
-                <SelectValue placeholder={loadingMesas ? "Cargando mesas..." : "Seleccionar mesa"} />
-              </SelectTrigger>
-              <SelectContent>
-                {mesas.map(m => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.label}{m.pedidos.length > 0 ? ` (${m.pedidos.length} activo${m.pedidos.length > 1 ? "s" : ""})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={handleSubmit}
-              disabled={!mesaId || submitting}
-              className="h-10 px-5 font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
-            >
-              {submitting
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <><CheckCircle2 className="w-4 h-4" /> Crear pedido</>
-              }
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ── MOBILE: botón flotante full-width ── */}
+      {/* ── FAB mobile — FUERA de cualquier div para que fixed funcione ── */}
       {totalItems > 0 && (
         <button
           onClick={() => setCarritoOpen(true)}
@@ -248,7 +97,7 @@ export function CatalogoCrearPedido() {
         </button>
       )}
 
-      {/* ── MOBILE: Dialog carrito ── */}
+      {/* ── Dialog carrito — también fuera del div ── */}
       <Dialog open={carritoOpen} onOpenChange={setCarritoOpen}>
         <DialogContent className="max-w-sm w-[calc(100%-2rem)] rounded-2xl p-0 overflow-hidden gap-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50">
@@ -258,7 +107,6 @@ export function CatalogoCrearPedido() {
             </DialogTitle>
           </DialogHeader>
 
-          {/* Items */}
           <div className="px-5 py-3 space-y-1 max-h-[38vh] overflow-y-auto">
             {Object.entries(carrito).map(([id, qty]) => {
               const item = catalogo.find(i => i.id === id)
@@ -291,7 +139,6 @@ export function CatalogoCrearPedido() {
             })}
           </div>
 
-          {/* Total + mesa + botones */}
           <div className="px-5 pb-5 pt-3 space-y-3 border-t border-border/50">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-foreground">Total</span>
@@ -328,7 +175,159 @@ export function CatalogoCrearPedido() {
         </DialogContent>
       </Dialog>
 
-    </div>
+      {/* ── Contenido principal ── */}
+      <div className="animate-fade-in pb-28 lg:pb-6">
+
+        {/* ── Filtro categorías ── */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setCategoriaFiltro("todas")}
+            className={cn(
+              "flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all border whitespace-nowrap",
+              categoriaFiltro === "todas"
+                ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+                : "bg-secondary text-muted-foreground border-border/50"
+            )}
+          >
+            Todo
+          </button>
+          {categorias.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setCategoriaFiltro(cat.id)}
+              className={cn(
+                "flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-all border whitespace-nowrap",
+                categoriaFiltro === cat.id
+                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25"
+                  : "bg-secondary text-muted-foreground border-border/50"
+              )}
+            >
+              {cat.emoji && <span className="text-sm">{cat.emoji}</span>}
+              {cat.nombre}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Grid catálogo ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {itemsFiltrados.map(item => {
+            const qty = carrito[item.id] ?? 0
+            return (
+              <div
+                key={item.id}
+                className={cn(
+                  "bg-card text-card-foreground rounded-xl p-3 shadow-sm flex flex-col transition-all duration-200 border overflow-hidden",
+                  qty > 0
+                    ? "border-primary/60 bg-primary/5 shadow-md shadow-primary/10"
+                    : "border-border/50"
+                )}
+              >
+                <div className="flex flex-col gap-1 flex-1">
+                  {item.emoji && (
+                    <span className="text-lg leading-none">{item.emoji}</span>
+                  )}
+                  <p className="font-semibold text-foreground text-xs leading-tight line-clamp-2 min-h-[32px]">
+                    {item.nombre}
+                  </p>
+                  {item.descripcion && (
+                    <p className="hidden lg:block text-[10px] text-muted-foreground leading-tight line-clamp-2">
+                      {item.descripcion}
+                    </p>
+                  )}
+                  <p className="font-extrabold text-primary text-sm mt-1">
+                    {fmtPrecio(item.precio)}
+                  </p>
+                </div>
+
+                <div className="mt-2">
+                  {qty === 0 ? (
+                    <button
+                      onClick={() => add(item.id)}
+                      className="w-full h-8 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Agregar
+                    </button>
+                  ) : (
+                    <div className="flex items-center justify-between gap-1">
+                      <button
+                        onClick={() => sub(item.id)}
+                        className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="font-extrabold text-primary text-base tabular-nums min-w-[1.5rem] text-center">
+                        {qty}
+                      </span>
+                      <button
+                        onClick={() => add(item.id)}
+                        className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center hover:bg-primary/80 transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-primary-foreground" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* ── DESKTOP: resumen pedido ── */}
+        {totalItems > 0 && (
+          <div className="hidden lg:block mt-6 bg-primary/5 border border-primary/40 rounded-xl p-5">
+            <h3 className="font-bold text-foreground mb-3 flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4 text-primary" />
+              Resumen del pedido
+            </h3>
+            <div className="space-y-1.5 mb-4 max-h-48 overflow-y-auto">
+              {Object.entries(carrito).map(([id, qty]) => {
+                const item = catalogo.find(i => i.id === id)
+                if (!item) return null
+                return (
+                  <div key={id} className="flex items-center justify-between text-sm gap-3">
+                    <span className="text-muted-foreground truncate flex items-center gap-1.5 min-w-0">
+                      {item.emoji} {item.nombre} ×{qty}
+                    </span>
+                    <span className="font-bold text-primary flex-shrink-0">
+                      {fmtPrecio(item.precio * qty)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex items-center justify-between mb-4 pt-3 border-t border-border/50">
+              <span className="font-semibold text-foreground">Total</span>
+              <span className="font-extrabold text-primary text-lg">{fmtPrecio(totalPrecio)}</span>
+            </div>
+            <div className="flex gap-3">
+              <Select value={mesaId} onValueChange={setMesaId}>
+                <SelectTrigger className="flex-1 h-10">
+                  <SelectValue placeholder={loadingMesas ? "Cargando mesas..." : "Seleccionar mesa"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {mesas.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.label}{m.pedidos.length > 0 ? ` (${m.pedidos.length} activo${m.pedidos.length > 1 ? "s" : ""})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleSubmit}
+                disabled={!mesaId || submitting}
+                className="h-10 px-5 font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
+              >
+                {submitting
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <><CheckCircle2 className="w-4 h-4" /> Crear pedido</>
+                }
+              </Button>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </>
   )
 }
 
